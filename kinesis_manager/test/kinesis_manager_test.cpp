@@ -212,9 +212,31 @@ public:
 };
 
 /**
+ * Mock for com::amazonaws::kinesis::video:KinesisVideoStream. As that class doesn't have virtual methods this mock 
+ * uses the techniques described on https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#mocking-nonvirtual-methods 
+ */
+class KinesisVideoStreamMock
+{
+public:
+  MOCK_CONST_METHOD0(isReady, bool());
+  MOCK_METHOD0(stop, bool());
+  MOCK_METHOD1(putFrame, bool(KinesisVideoFrame));
+  MOCK_METHOD3(putFragmentMetadata, bool(const std::string&, const std::string&, bool));
+};
+
+class VideoStreamsMock 
+{
+public:
+
+  MOCK_CONST_METHOD1(count, VideoStreamsImpl::size_type(std::string));
+  MOCK_METHOD1(insert,void(VideoStreamsImpl::value_type));
+  MOCK_CONST_METHOD1(at, std::shared_ptr<KinesisVideoStreamMock>(VideoStreamsImpl::key_type));
+  MOCK_METHOD1(erase, void(VideoStreamsImpl::key_type));
+}; 
+
+/**
  * Mock for com::amazonaws::kinesis::video::KinesisVideoProducer. As that class doesn't have virtual methods this mock 
  * uses the techniques described on https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#mocking-nonvirtual-methods
- * so it doesn't inherit from com::amazonaws::kinesis::video::KinesisVideoProducer
  */
 class KinesisVideoProducerMock
 {
@@ -224,25 +246,33 @@ public:
   }
   MOCK_METHOD1(createStreamSyncProxy, std::shared_ptr<KinesisVideoStream>(StreamDefinition* stream_definition));
   MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStream> kinesis_video_stream));
-
+  MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStreamMock> kinesis_video_stream));
 };
 
 namespace Aws {
 namespace Kinesis {
 
-/**
- * Specific specilization of KinesisStreamManagerT::InitializeVideoProducer so it works with KinesisVideoProducerMock
- */
 template<> 
 KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl>::InitializeVideoProducer(
-    std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
-    unique_ptr<ClientCallbackProvider> client_callback_provider,
-    unique_ptr<StreamCallbackProvider> stream_callback_provider,
-    unique_ptr<CredentialProvider> credential_provider) 
-    {
-      this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
-      return KINESIS_MANAGER_STATUS_SUCCESS;
-    }
+  std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
+  unique_ptr<ClientCallbackProvider> client_callback_provider,
+  unique_ptr<StreamCallbackProvider> stream_callback_provider,
+  unique_ptr<CredentialProvider> credential_provider) 
+  {
+    this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
+    return KINESIS_MANAGER_STATUS_SUCCESS;
+  }
+
+template<> 
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock>::InitializeVideoProducer(
+  std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
+  unique_ptr<ClientCallbackProvider> client_callback_provider,
+  unique_ptr<StreamCallbackProvider> stream_callback_provider,
+  unique_ptr<CredentialProvider> credential_provider) 
+  {
+    this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
+    return KINESIS_MANAGER_STATUS_SUCCESS;
+  }
 
 }  // namespace Kinesis
 }  // namespace Aws
@@ -342,27 +372,28 @@ TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVi
 // FIXME rename test 
 TEST_F(KinesisStreamManagerMockingFixture, putFrameTestFIXME)
 {
-  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager;
-  Frame frame;
-  string stream_name("testStream");
+  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
+  // // KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager;
+  // Frame frame;
+  // string stream_name("testStream");
 
-  /* Before calling InitializeVideoProducer */
-  KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
-  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
+  // /* Before calling InitializeVideoProducer */
+  // KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
+  // ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+  //             KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
 
-  /* Stream name not found (i.e. before calling InitializeVideoStream) */
-  unique_ptr<StreamDefinition> stream_definition =
-    DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"));
-  status = stream_manager.PutFrame(string(stream_name), frame);
-  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-              KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND == status);
+  // /* Stream name not found (i.e. before calling InitializeVideoStream) */
+  // unique_ptr<StreamDefinition> stream_definition =
+  //   DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"));
+  // status = stream_manager.PutFrame(string(stream_name), frame);
+  // ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+  //             KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND == status);
 
-  auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
-  EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
-    .WillOnce(Return(kinesis_video_stream));
-  status = stream_manager.InitializeVideoStream(move(stream_definition));
-  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+  // auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
+  // EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
+  //   .WillOnce(Return(kinesis_video_stream));
+  // status = stream_manager.InitializeVideoStream(move(stream_definition));
+  // ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
 
   // // FIXME: by pass just due to default value 
   // /* Invalid frame */

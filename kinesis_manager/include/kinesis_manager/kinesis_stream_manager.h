@@ -267,6 +267,8 @@ public:
 
   KinesisVideoProducerI * get_video_producer() { return video_producer_.get(); }
 
+  VideoStreamsI& get_video_streams() { return video_streams_; }
+
 protected:
   KinesisManagerStatus InitializeStreamSubscription(
     const StreamSubscriptionDescriptor & descriptor) override;
@@ -280,7 +282,7 @@ private:
    */
   KinesisManagerStatus UpdateShardIterator(const std::string & stream_name);
 
-  std::map<std::string, shared_ptr<KinesisVideoStream>> video_streams_;
+  VideoStreamsI video_streams_;
   std::map<std::string, std::vector<uint8_t>> video_streams_codec_data_;
   unique_ptr<KinesisVideoProducerI> video_producer_;
   unique_ptr<KinesisClient> kinesis_client_;
