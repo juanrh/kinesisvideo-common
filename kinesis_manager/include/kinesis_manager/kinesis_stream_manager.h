@@ -132,8 +132,8 @@ public:
    * @note Both the video producer and the given stream must have been initialized before any calls
    * to this function are made.
    * @param stream_name
-   * @param names list of names of the metadata items
-   * @param values list of values of the metadata items
+   * @param name the metadata name
+   * @param value the metadata value
    * @return KinesisManagerStatus
    */
   virtual KinesisManagerStatus PutMetadata(std::string stream_name, const std::string & name,

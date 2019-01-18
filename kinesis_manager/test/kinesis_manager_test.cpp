@@ -333,6 +333,74 @@ protected:
   StreamSubscriptionInstallerMock  subscription_installer_ ;
 };
 
+TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataNotInitialized)
+{
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
+    & subscription_installer_, std::move(kinesis_client_));
+  std::string stream_name = "stream_name1";
+  std::string metadata_name = "metadata_name";
+  std::string metadata_value = "metadata_value";
+
+  auto status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+}
+
+TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
+{
+  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
+  std::string stream_name = "stream_name1";
+  std::string metadata_name = "metadata_name";
+  std::string metadata_value = "metadata_value";
+
+  stream_manager.InitializeVideoProducer(string("us-west-2"));
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+  EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
+    .WillRepeatedly(Return(1));
+  EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
+    .WillRepeatedly(Return(video_stream_mock));
+  EXPECT_CALL(*video_stream_mock, isReady())
+    .WillOnce(Return(false));
+
+  auto status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+  
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+}
+
+TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
+{
+   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
+  std::string stream_name = "stream_name1";
+  std::string metadata_name = "metadata_name";
+  std::string metadata_value = "metadata_value";
+
+  stream_manager.InitializeVideoProducer(string("us-west-2"));
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+  EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
+    .WillRepeatedly(Return(1));
+  EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
+    .WillRepeatedly(Return(video_stream_mock));
+  ON_CALL(*video_stream_mock, isReady())
+    .WillByDefault(Return(true));
+
+  {
+    InSequence video_stream_mock_seq;
+  
+    EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+      .WillOnce(Return(false));
+
+    EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+      .WillOnce(Return(true));
+  }
+
+  auto status1 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+  auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+  
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status1));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status2));
+}
+
 TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupZeroStreamCount)
 {
   map<string, int> int_map = {{GetKinesisVideoParameter(kStreamParameters.stream_count).c_str(), 0}};
@@ -368,7 +436,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStre
   int stream_idx = 0;
   map<string, int> int_map = {
     {GetKinesisVideoParameter(kStreamParameters.stream_count).c_str(), 1},
-    { GetStreamParameterPath(stream_idx, kStreamParameters.topic_type).c_str(), 42}
+    {GetStreamParameterPath(stream_idx, kStreamParameters.topic_type).c_str(), 42}
     };
   map<string, string> string_map = {
     {GetStreamParameterPath(stream_idx, kStreamParameters.topic_name).c_str(), "foo"},
