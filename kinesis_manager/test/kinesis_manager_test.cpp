@@ -170,9 +170,9 @@ static bool are_streams_equivalent(unique_ptr<StreamDefinition> stream1,
 /**
  * Initializes the video producer and generates a basic stream definition.
  */
-template<class KinesisVideoProducerI>
+template<class KinesisVideoProducerI, class VideoStreamsI>
 unique_ptr<StreamDefinition> DefaultProducerSetup(
-  KinesisStreamManagerT<KinesisVideoProducerI> & stream_manager, 
+  KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI> & stream_manager, 
   string region, string test_prefix, std::shared_ptr<ParameterReaderInterface> parameter_reader)
 {
 #ifdef PLATFORM_TESTING_ACCESS_KEY
@@ -192,9 +192,10 @@ unique_ptr<StreamDefinition> DefaultProducerSetup(
 /**
  * Initializes the video producer and generates a basic stream definition.
  */
-template<class KinesisVideoProducerI>
+template<class KinesisVideoProducerI, class VideoStreamsI>
 unique_ptr<StreamDefinition> DefaultProducerSetup(
-  KinesisStreamManagerT<KinesisVideoProducerI> & stream_manager, string region, string test_prefix)
+  KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI> & stream_manager, 
+  string region, string test_prefix)
 {
    std::shared_ptr<ParameterReaderInterface> parameter_reader = 
     std::make_shared<TestParameterReader>(test_prefix);
@@ -233,7 +234,7 @@ namespace Kinesis {
  * Specific specilization of KinesisStreamManagerT::InitializeVideoProducer so it works with KinesisVideoProducerMock
  */
 template<> 
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock>::InitializeVideoProducer(
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl>::InitializeVideoProducer(
     std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
     unique_ptr<ClientCallbackProvider> client_callback_provider,
     unique_ptr<StreamCallbackProvider> stream_callback_provider,
@@ -269,10 +270,10 @@ public:
   MOCK_METHOD1(Uninstall, void(const std::string & topic_name));
 };
 
-class KinesisStreamManagerMockingFixure : public ::testing::Test 
+class KinesisStreamManagerMockingFixture : public ::testing::Test 
 {
 public:
-  KinesisStreamManagerMockingFixure() 
+  KinesisStreamManagerMockingFixture() 
   {
     parameter_reader_ = std::make_shared<TestParameterReader>(int_map_, bool_map_, string_map_, map_map_);
   }
@@ -294,7 +295,7 @@ protected:
   StreamSubscriptionInstallerMock  subscription_installer_ ;
 };
 
-TEST_F(KinesisStreamManagerMockingFixure, mockStreamInitializationTestActualKinesisVideoProducer)
+TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
 {
   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
@@ -317,9 +318,9 @@ TEST_F(KinesisStreamManagerMockingFixure, mockStreamInitializationTestActualKine
               KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
 }
 
-TEST_F(KinesisStreamManagerMockingFixure, mockStreamInitializationTestKinesisVideoProducerMock)
+TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVideoProducerMock)
 {
-  KinesisStreamManagerT<KinesisVideoProducerMock> stream_manager;
+  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager;
   ASSERT_FALSE(stream_manager.get_video_producer());
   unique_ptr<StreamDefinition> stream_definition = 
     DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_);
@@ -336,6 +337,57 @@ TEST_F(KinesisStreamManagerMockingFixure, mockStreamInitializationTestKinesisVid
     .WillOnce(Return(kinesis_video_stream));
   status = stream_manager.InitializeVideoStream(move(stream_definition));
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+}
+
+// FIXME rename test 
+TEST_F(KinesisStreamManagerMockingFixture, putFrameTestFIXME)
+{
+  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager;
+  Frame frame;
+  string stream_name("testStream");
+
+  /* Before calling InitializeVideoProducer */
+  KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
+
+  /* Stream name not found (i.e. before calling InitializeVideoStream) */
+  unique_ptr<StreamDefinition> stream_definition =
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"));
+  status = stream_manager.PutFrame(string(stream_name), frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND == status);
+
+  auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
+  EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
+    .WillOnce(Return(kinesis_video_stream));
+  status = stream_manager.InitializeVideoStream(move(stream_definition));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+
+  // // FIXME: by pass just due to default value 
+  // /* Invalid frame */
+  // frame.size = 0;
+  // status = stream_manager.PutFrame(stream_name, frame);
+  // ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+  //             KINESIS_MANAGER_STATUS_PUTFRAME_FAILED == status);
+
+  // /* Valid (but dummy) frame */
+  // frame.size = 4;
+  // std::vector<uint8_t> bytes = {0x00, 0x01, 0x02, 0x03};
+  // frame.frameData = reinterpret_cast<PBYTE>((void *)(bytes.data()));
+  // frame.duration = 5000000;
+  // frame.index = 1;
+  // UINT64 timestamp = 0;
+  // timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+  //               std::chrono::system_clock::now().time_since_epoch())
+  //               .count() /
+  //             DEFAULT_TIME_UNIT_IN_NANOS;
+  // frame.decodingTs = timestamp;
+  // frame.presentationTs = timestamp;
+  // frame.flags = (FRAME_FLAGS)0;
+
+  // status = stream_manager.PutFrame(stream_name, frame);
+  // ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
 }
 
 /**

@@ -162,8 +162,8 @@ KinesisManagerStatus KinesisStreamManagerInterface::KinesisVideoStreamerSetup()
   return status;
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeStreamSubscription(
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeStreamSubscription(
   const StreamSubscriptionDescriptor & descriptor)
 {
   KinesisManagerStatus status = this->subscription_installer_->Install(descriptor);
@@ -175,8 +175,8 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeStr
   return status;
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeVideoProducer(
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeVideoProducer(
   std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
   unique_ptr<ClientCallbackProvider> client_callback_provider,
   unique_ptr<StreamCallbackProvider> stream_callback_provider,
@@ -195,8 +195,8 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeVid
   return KINESIS_MANAGER_STATUS_SUCCESS;
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeVideoProducer(std::string region)
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeVideoProducer(std::string region)
 {
   unique_ptr<DeviceInfoProvider> device_provider = make_unique<DefaultDeviceInfoProvider>();
   unique_ptr<ClientCallbackProvider> client_callback_provider =
@@ -216,8 +216,8 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeVid
     std::move(stream_callback_provider), std::move(credentials_provider));
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeVideoStream(
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeVideoStream(
   unique_ptr<StreamDefinition> stream_definition)
 {
   if (!video_producer_) {
@@ -257,8 +257,8 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::InitializeVid
   }
 };
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::PutFrame(std::string stream_name, Frame & frame) const
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::PutFrame(std::string stream_name, Frame & frame) const
 {
   if (!video_producer_) {
     return KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED;
@@ -274,10 +274,9 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::PutFrame(std:
   return result ? KINESIS_MANAGER_STATUS_SUCCESS : KINESIS_MANAGER_STATUS_PUTFRAME_FAILED;
 };
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::PutMetadata(std::string stream_name,
-                                                       const std::string & name,
-                                                       const std::string & value) const
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::PutMetadata(
+  std::string stream_name, const std::string & name, const std::string & value) const
 {
   if (!video_producer_) {
     return KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED;
@@ -293,8 +292,8 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::PutMetadata(s
   return result ? KINESIS_MANAGER_STATUS_SUCCESS : KINESIS_MANAGER_STATUS_PUTMETADATA_FAILED;
 };
 
-template<class KinesisVideoProducerI>
-void KinesisStreamManagerT<KinesisVideoProducerI>::FreeStream(std::string stream_name)
+template<class KinesisVideoProducerI, class VideoStreamsI>
+void KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::FreeStream(std::string stream_name)
 {
   if (video_producer_ && video_streams_.count(stream_name) > 0) {
     if (video_streams_.at(stream_name)->isReady()) {
@@ -305,8 +304,8 @@ void KinesisStreamManagerT<KinesisVideoProducerI>::FreeStream(std::string stream
   }
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::ProcessCodecPrivateDataForStream(
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::ProcessCodecPrivateDataForStream(
   const std::string & stream_name, std::vector<uint8_t> codec_private_data)
 {
   if (0 < video_streams_codec_data_.count(stream_name) &&
@@ -350,8 +349,9 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::ProcessCodecP
   return status;
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::UpdateShardIterator(const std::string & stream_name)
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::UpdateShardIterator(
+  const std::string & stream_name)
 {
   if (!rekognition_config_.at(stream_name).shard_iterator.empty()) {
     /* Already loaded */
@@ -392,8 +392,8 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::UpdateShardIt
   return KINESIS_MANAGER_STATUS_SUCCESS;
 }
 
-template<class KinesisVideoProducerI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI>::FetchRekognitionResults(
+template<class KinesisVideoProducerI, class VideoStreamsI>
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::FetchRekognitionResults(
   const std::string & stream_name, Aws::Vector<Model::Record> * records)
 {
   KinesisManagerStatus status = KINESIS_MANAGER_STATUS_SUCCESS;
