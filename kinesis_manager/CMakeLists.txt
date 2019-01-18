@@ -18,7 +18,7 @@ find_package(KVSSDK REQUIRED)
 ## Library ##
 #############
 ## Declare a C++ library
-add_library(${PROJECT_NAME} SHARED src/stream_definition_provider.cpp src/kinesis_stream_manager.cpp src/default_callbacks.cpp)
+add_library(${PROJECT_NAME} SHARED src/stream_definition_provider.cpp src/default_callbacks.cpp)
 set(${PROJECT_NAME}_IMPORTED_LIBRARIES producer log4cplus)
 
 ## Add KVS SDK libraries
@@ -61,11 +61,15 @@ find_package(GTest QUIET)
 if(NOT GTEST_FOUND)
   message(WARNING "Could not find GTest. Not building unit tests.")
 else()
+  include_directories(/usr/include/gmock /usr/src/gmock)
+  add_library(libgmock /usr/src/gmock/src/gmock-all.cc)
+
   add_executable(test_kinesis_manager test/kinesis_manager_test.cpp)
   target_include_directories(test_kinesis_manager PRIVATE ${aws_common_INCLUDE_DIRS} ${KVSSDK_EXTERNAL_INCLUDE_DIR})
 
   target_link_libraries(test_kinesis_manager
         ${GTEST_LIBRARIES}
+        libgmock
         pthread
         ${aws_common_LIBRARIES}
         ${PROJECT_NAME}

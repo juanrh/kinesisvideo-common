@@ -15,6 +15,7 @@
 #include <aws/core/Aws.h>
 #include <aws_common/sdk_utils/aws_error.h>
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include <kinesis-video-producer/KinesisVideoProducer.h>
 #include <kinesis-video-producer/Logger.h>
 #include <kinesis_manager/common.h>
@@ -26,6 +27,10 @@ LOGGER_TAG("aws.kinesis.kinesis_manager_unittest");
 using namespace std;
 using namespace Aws;
 using namespace Aws::Kinesis;
+using namespace com::amazonaws::kinesis::video;
+using ::testing::NiceMock;
+using ::testing::_;
+using ::testing::Return;
 
 /**
  * Parameter reader that sets the output using provided std::mapS.
@@ -163,6 +168,177 @@ static bool are_streams_equivalent(unique_ptr<StreamDefinition> stream1,
 }
 
 /**
+ * Initializes the video producer and generates a basic stream definition.
+ */
+template<class KinesisVideoProducerI>
+unique_ptr<StreamDefinition> DefaultProducerSetup(
+  KinesisStreamManagerT<KinesisVideoProducerI> & stream_manager, 
+  string region, string test_prefix, std::shared_ptr<ParameterReaderInterface> parameter_reader)
+{
+#ifdef PLATFORM_TESTING_ACCESS_KEY
+  setenv("AWS_ACCESS_KEY_ID", PLATFORM_TESTING_ACCESS_KEY, 1);
+#endif
+#ifdef PLATFORM_TESTING_SECRET_KEY
+  setenv("AWS_SECRET_ACCESS_KEY", PLATFORM_TESTING_SECRET_KEY, 1);
+#endif
+  stream_manager.InitializeVideoProducer(region);
+
+  StreamDefinitionProvider stream_definition_provider;
+  unique_ptr<StreamDefinition> stream_definition = stream_definition_provider.GetStreamDefinition(
+    test_prefix.c_str(), *parameter_reader, nullptr, 0);
+  return move(stream_definition);
+}
+
+/**
+ * Initializes the video producer and generates a basic stream definition.
+ */
+template<class KinesisVideoProducerI>
+unique_ptr<StreamDefinition> DefaultProducerSetup(
+  KinesisStreamManagerT<KinesisVideoProducerI> & stream_manager, string region, string test_prefix)
+{
+   std::shared_ptr<ParameterReaderInterface> parameter_reader = 
+    std::make_shared<TestParameterReader>(test_prefix);
+  return DefaultProducerSetup(stream_manager, region, test_prefix, parameter_reader);
+}
+
+/**
+ * Mock class for Aws::Kinesis::KinesisClient, fully functional as all it's methods are virtual.
+ */
+class KinesisClientMock : public KinesisClient
+{
+public:
+  MOCK_CONST_METHOD0(GetServiceClientName, const char *());
+};
+
+/**
+ * Mock for com::amazonaws::kinesis::video::KinesisVideoProducer. As that class doesn't have virtual methods this mock 
+ * uses the techniques described on https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#mocking-nonvirtual-methods
+ * so it doesn't inherit from com::amazonaws::kinesis::video::KinesisVideoProducer
+ */
+class KinesisVideoProducerMock
+{
+public:
+  std::shared_ptr<KinesisVideoStream> createStreamSync(std::unique_ptr<StreamDefinition> stream_definition) {
+    return createStreamSyncProxy(stream_definition.get());
+  }
+  MOCK_METHOD1(createStreamSyncProxy, std::shared_ptr<KinesisVideoStream>(StreamDefinition* stream_definition));
+  MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStream> kinesis_video_stream));
+
+};
+
+namespace Aws {
+namespace Kinesis {
+
+/**
+ * Specific specilization of KinesisStreamManagerT::InitializeVideoProducer so it works with KinesisVideoProducerMock
+ */
+template<> 
+KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock>::InitializeVideoProducer(
+    std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
+    unique_ptr<ClientCallbackProvider> client_callback_provider,
+    unique_ptr<StreamCallbackProvider> stream_callback_provider,
+    unique_ptr<CredentialProvider> credential_provider) 
+    {
+      this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
+      return KINESIS_MANAGER_STATUS_SUCCESS;
+    }
+
+}  // namespace Kinesis
+}  // namespace Aws
+
+/**
+ * Mock for com::amazonaws::kinesis::video::KinesisVideoProducer. As that class doesn't have virtual methods, 
+ * and we cannot modify com::amazonaws::kinesis::video::KinesisVideoProducer, this is just a placeholder, that
+ * cannot be used to assert or spy. It's mostly used in the constructor of KinesisVideoStreamOpaqueMock
+ */
+class KinesisVideoProducerOpaqueMock: public KinesisVideoProducer {};
+
+const static KinesisVideoProducerOpaqueMock kOpaqueProducer;
+
+class KinesisVideoStreamOpaqueMock : public KinesisVideoStream
+{
+public:
+  KinesisVideoStreamOpaqueMock(const std::string stream_name) : KinesisVideoStream(
+    kOpaqueProducer, stream_name) {}
+};
+
+class StreamSubscriptionInstallerMock : public StreamSubscriptionInstaller
+{
+public: 
+  MOCK_CONST_METHOD1(Install, KinesisManagerStatus(const StreamSubscriptionDescriptor & descriptor));
+  MOCK_METHOD1(Uninstall, void(const std::string & topic_name));
+};
+
+class KinesisStreamManagerMockingFixure : public ::testing::Test 
+{
+public:
+  KinesisStreamManagerMockingFixure() 
+  {
+    parameter_reader_ = std::make_shared<TestParameterReader>(int_map_, bool_map_, string_map_, map_map_);
+  }
+
+protected:
+  string test_prefix_ = "some/test/prefix";
+  string encoded_string_ = "aGVsbG8gd29ybGQ=";
+  map<string, int> int_map_ = {};
+  map<string, bool> bool_map_ = {};
+  map<string, string> tags_;
+  map<string, map<string, string>> map_map_ = {};
+  map<string, string> string_map_ = {
+    {test_prefix_ + "codecPrivateData", encoded_string_},
+  };
+
+  std::shared_ptr<ParameterReaderInterface> parameter_reader_; 
+
+  StreamDefinitionProvider stream_definition_provider_;
+  StreamSubscriptionInstallerMock  subscription_installer_ ;
+};
+
+TEST_F(KinesisStreamManagerMockingFixure, mockStreamInitializationTestActualKinesisVideoProducer)
+{
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
+    & subscription_installer_, std::move(kinesis_client_));
+
+  /* Before calling InitializeVideoProducer */
+  KinesisManagerStatus status =
+    stream_manager.InitializeVideoStream(move(unique_ptr<StreamDefinition>()));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);  
+
+  ASSERT_FALSE(stream_manager.get_video_producer());
+  unique_ptr<StreamDefinition> stream_definition = 
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_);
+  ASSERT_TRUE(stream_manager.get_video_producer());
+
+  /* Video producer has been created but the stream definition is empty. */
+  status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+}
+
+TEST_F(KinesisStreamManagerMockingFixure, mockStreamInitializationTestKinesisVideoProducerMock)
+{
+  KinesisStreamManagerT<KinesisVideoProducerMock> stream_manager;
+  ASSERT_FALSE(stream_manager.get_video_producer());
+  unique_ptr<StreamDefinition> stream_definition = 
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_);
+  ASSERT_TRUE(stream_manager.get_video_producer());
+
+  /* Video producer has been created but the stream definition is empty. */
+  KinesisManagerStatus status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+
+  std::string stream_name = "stream_name1";
+  auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
+  EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
+    .WillOnce(Return(kinesis_video_stream));
+  status = stream_manager.InitializeVideoStream(move(stream_definition));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+}
+
+/**
  * Tests that GetCodecPrivateData successfully reads and decodes the given base64-encoded buffer.
  */
 TEST(StreamDefinitionProviderSuite, getCodecPrivateDataTest)
@@ -288,27 +464,6 @@ TEST(StreamDefinitionProviderSuite, getStreamDefinitionTest)
   generated_stream_definition = stream_definition_provider.GetStreamDefinition(
     test_prefix.c_str(), parameter_reader, nullptr, 100);
   ASSERT_FALSE(generated_stream_definition);
-}
-
-/**
- * Initializes the video producer and generates a basic stream definition.
- */
-unique_ptr<StreamDefinition> DefaultProducerSetup(
-  Aws::Kinesis::KinesisStreamManager & stream_manager, string region, string test_prefix)
-{
-#ifdef PLATFORM_TESTING_ACCESS_KEY
-  setenv("AWS_ACCESS_KEY_ID", PLATFORM_TESTING_ACCESS_KEY, 1);
-#endif
-#ifdef PLATFORM_TESTING_SECRET_KEY
-  setenv("AWS_SECRET_ACCESS_KEY", PLATFORM_TESTING_SECRET_KEY, 1);
-#endif
-  stream_manager.InitializeVideoProducer(region);
-
-  Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
-  TestParameterReader parameter_reader = TestParameterReader(test_prefix);
-  unique_ptr<StreamDefinition> stream_definition = stream_definition_provider.GetStreamDefinition(
-    test_prefix.c_str(), parameter_reader, nullptr, 0);
-  return move(stream_definition);
 }
 
 /**
