@@ -30,6 +30,7 @@ using namespace Aws::Kinesis;
 using namespace com::amazonaws::kinesis::video;
 using ::testing::NiceMock;
 using ::testing::_;
+using ::testing::A;
 using ::testing::Return;
 using ::testing::Eq;
 using ::testing::StrEq;
@@ -370,7 +371,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
 
 TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
 {
-   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
+  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
   std::string stream_name = "stream_name1";
   std::string metadata_name = "metadata_name";
   std::string metadata_value = "metadata_value";
@@ -395,10 +396,32 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
   }
 
   auto status1 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
-  auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
-  
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status1));
+  auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status2));
+}
+
+TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
+{
+  KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
+  std::string stream_name = "stream_name1";
+
+  stream_manager.InitializeVideoProducer(string("us-west-2"));
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+  EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
+    .WillRepeatedly(Return(1));
+  EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
+    .WillRepeatedly(Return(video_stream_mock));
+  ON_CALL(*video_stream_mock, isReady())
+    .WillByDefault(Return(true)); 
+  EXPECT_CALL(*video_stream_mock, stop())
+    .Times(1);
+  EXPECT_CALL(*stream_manager.get_video_producer(), 
+    freeStream(A<std::shared_ptr<KinesisVideoStreamMock>>())).Times(1);
+  EXPECT_CALL(stream_manager.get_video_streams(), erase(StrEq(stream_name)))
+    .Times(1);
+
+  stream_manager.FreeStream(stream_name);
 }
 
 TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupZeroStreamCount)
