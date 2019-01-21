@@ -301,9 +301,7 @@ namespace Model
     return true;
   }
 
-  // namespace Model
-}
-
+}  // namespace Model
 }  // namespace Kinesis
 }  // namespace Aws
 
@@ -368,6 +366,50 @@ public:
   MOCK_CONST_METHOD2(ReadMap, Aws::AwsError(const char *, std::map<std::string, std::string> &));
 
 };
+
+class TestStreamSubscriptionInstaller : public StreamSubscriptionInstaller
+{
+public:
+  void Uninstall(const std::string & topic_name) override {}
+  void PutInstaller(KinesisStreamInputType input_type, const SubscriberSetupFn& setup_fun) 
+  {
+    installers_.insert({input_type, setup_fun});
+  }
+};
+
+TEST(StreamSubscriptionInstaller, StreamSubscriptionInstallerTest)
+{
+  TestStreamSubscriptionInstaller test_subject;
+
+  KinesisStreamInputType input_type;
+  StreamSubscriptionDescriptor descriptor{input_type, std::string("topic_name"),
+    std::string("stream_name"), 10,
+    std::string("rekognition_topic_name"), std::string("rekognition_data_stream")
+  };
+
+  StreamSubscriptionDescriptor incomplete_descriptor = descriptor;
+  incomplete_descriptor.topic_name = "";
+  auto status = test_subject.Install(incomplete_descriptor);
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_INVALID_INPUT, status);
+
+  incomplete_descriptor = descriptor;
+  incomplete_descriptor.stream_name = "";
+  status = test_subject.Install(incomplete_descriptor);
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_INVALID_INPUT, status);
+
+  status = test_subject.Install(descriptor);
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUBSCRIPTION_INSTALLER_NOT_FOUND, status);
+
+  bool setup_called = false;
+  SubscriberSetupFn setup_fun = [&setup_called](const StreamSubscriptionDescriptor & descriptor) { 
+    setup_called = true;
+    return true; 
+  };
+  test_subject.PutInstaller(descriptor.input_type, setup_fun);
+  status = test_subject.Install(descriptor);
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
+  EXPECT_TRUE(setup_called);
+}
 
 class KinesisStreamManagerMockingFixture : public ::testing::Test 
 {
