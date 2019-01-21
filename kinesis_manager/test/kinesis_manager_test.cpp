@@ -377,7 +377,7 @@ public:
   }
 };
 
-TEST(ClientCallbackProviderSuite, defaultStreamCallbackProviderSuiteTest)
+TEST(ClientCallbackProviderSuite, defaultClientCallbackProviderTest)
 {
   DefaultClientCallbackProvider test_subject;
   UINT64 custom_handle;
@@ -468,9 +468,9 @@ protected:
 
 TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataNotInitialized)
 {
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
-    & subscription_installer_, std::move(kinesis_client_));
+    & subscription_installer_, std::move(kinesis_client));
   std::string stream_name = "stream_name1";
   std::string metadata_name = "metadata_name";
   std::string metadata_value = "metadata_value";
@@ -560,9 +560,9 @@ TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamK
 {
   ParameterReaderMock parameter_reader; 
   StreamDefinitionProviderFullMock stream_definition_provider;
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager(&parameter_reader,
-    & stream_definition_provider, & subscription_installer_, std::move(kinesis_client_));
+    & stream_definition_provider, & subscription_installer_, std::move(kinesis_client));
   std::string stream_name = "stream_name1";
   std::string topic_name = "topic1";
   std::vector<uint8_t> codec_private_data = {1,2,3};
@@ -603,9 +603,9 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupZeroStream
 {
   map<string, int> int_map = {{GetKinesisVideoParameter(kStreamParameters.stream_count).c_str(), 0}};
   auto parameter_reader = std::make_shared<TestParameterReader>(int_map, bool_map_, string_map_, map_map_);
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManager stream_manager(parameter_reader.get(), & stream_definition_provider_, 
-    & subscription_installer_, std::move(kinesis_client_));
+    & subscription_installer_, std::move(kinesis_client));
 
   auto status = stream_manager.KinesisVideoStreamerSetup();
 
@@ -617,9 +617,9 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStre
   map<string, int> int_map = {{GetKinesisVideoParameter(kStreamParameters.stream_count).c_str(), 1}};
   auto parameter_reader = std::make_shared<TestParameterReader>(int_map, bool_map_, string_map_, map_map_);
   StreamDefinitionProviderPartialMock stream_definition_provider;
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManager stream_manager(parameter_reader.get(), & stream_definition_provider, 
-    & subscription_installer_, std::move(kinesis_client_));
+    & subscription_installer_, std::move(kinesis_client));
 
   EXPECT_CALL(stream_definition_provider, GetCodecPrivateData(_,_,_,_))
     .WillOnce(Return(KINESIS_MANAGER_STATUS_ERROR_BASE));
@@ -734,9 +734,9 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
 
 TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
 {
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
-    & subscription_installer_, std::move(kinesis_client_));
+    & subscription_installer_, std::move(kinesis_client));
 
   /* Before calling InitializeVideoProducer */
   KinesisManagerStatus status =
