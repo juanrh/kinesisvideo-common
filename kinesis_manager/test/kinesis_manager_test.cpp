@@ -37,6 +37,7 @@ using ::testing::StrEq;
 using ::testing::InSequence;
 using ::testing::DoAll;
 using ::testing::SetArgReferee;
+using ::testing::ContainerEq;
 using Aws::AwsError;
 
 /**
@@ -216,6 +217,11 @@ class KinesisClientMock : public KinesisClient
 {
 public:
   MOCK_CONST_METHOD0(GetServiceClientName, const char *());
+  MOCK_CONST_METHOD1(ListShards, Model::ListShardsOutcome(const Model::ListShardsRequest&));
+  MOCK_CONST_METHOD1(GetShardIterator, 
+    Model::GetShardIteratorOutcome(const Model::GetShardIteratorRequest&));
+  MOCK_CONST_METHOD1(GetRecords,
+    Model::GetRecordsOutcome(const Model::GetRecordsRequest&));
 };
 
 /**
@@ -279,6 +285,24 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock, VideoStream
     this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
     return KINESIS_MANAGER_STATUS_SUCCESS;
   }
+
+namespace Model
+{
+  bool operator==(const Record & left, const Record & right)
+  {
+    bool result = true;
+
+    result &= (left.GetSequenceNumber() == right.GetSequenceNumber());
+    result &= (left.GetApproximateArrivalTimestamp() == right.GetApproximateArrivalTimestamp());
+    result &= (left.GetData() == right.GetData());
+    result &= (left.GetPartitionKey() == right.GetPartitionKey());
+    result &= (left.GetEncryptionType() == right.GetEncryptionType());
+
+    return true;
+  }
+
+  // namespace Model
+}
 
 }  // namespace Kinesis
 }  // namespace Aws
@@ -460,7 +484,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
   stream_manager.FreeStream(stream_name);
 }
 
-TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamKinesisVideoStreamSetup)
+TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamKinesisVideoStreamSetupFailure)
 {
   ParameterReaderMock parameter_reader; 
   StreamDefinitionProviderFullMock stream_definition_provider;
@@ -533,37 +557,72 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStre
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
 }
 
-TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStreamSuccessful)
+TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRekognitionResultsSingleStreamSuccessful)
 {
   int stream_idx = 0;
+  std::string stream_name = "stream_name1";
   map<string, int> int_map = {
     {GetKinesisVideoParameter(kStreamParameters.stream_count).c_str(), 1},
     {GetStreamParameterPath(stream_idx, kStreamParameters.topic_type).c_str(), 42}
     };
   map<string, string> string_map = {
     {GetStreamParameterPath(stream_idx, kStreamParameters.topic_name).c_str(), "foo"},
-    {GetStreamParameterPath(stream_idx, kStreamParameters.stream_name).c_str(), "bar"}
+    {GetStreamParameterPath(stream_idx, kStreamParameters.stream_name).c_str(), stream_name},
+    {GetStreamParameterPath(stream_idx, kStreamParameters.rekognition_data_stream).c_str(), 
+      "rekognition_data_stream"},
+    {GetStreamParameterPath(stream_idx, kStreamParameters.rekognition_topic_name).c_str(),
+      "rekognition_topic_name"},
   };
   
   TestParameterReader parameter_reader(int_map, bool_map_, string_map, map_map_);
   StreamDefinitionProviderPartialMock stream_definition_provider;
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client_ = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::make_unique<NiceMock<KinesisClientMock>>();
+  NiceMock<KinesisClientMock> * kinesis_client_p = kinesis_client.get();
   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager(&parameter_reader, & stream_definition_provider, 
-    & subscription_installer_, std::move(kinesis_client_));
+    & subscription_installer_, std::move(kinesis_client));
 
   stream_manager.InitializeVideoProducer(string("us-west-2"));
   EXPECT_CALL(stream_definition_provider, GetCodecPrivateData(_,_,_,_))
     .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
-  std::string stream_name = "stream_name1";
   auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
   EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
     .WillOnce(Return(kinesis_video_stream));
   EXPECT_CALL(subscription_installer_, Install(_))
     .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
+ 
+  auto setup_status = stream_manager.KinesisVideoStreamerSetup();
 
-  auto status = stream_manager.KinesisVideoStreamerSetup();
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(setup_status));
 
-  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+  Aws::Vector<Model::Record> kinesis_records;
+  Model::ListShardsResult list_shards_result;
+  Model::Shard shard1; 
+  shard1.SetShardId("shard1Id");
+  list_shards_result.SetShards({shard1});
+  Model::ListShardsOutcome list_shards_outcome(list_shards_result);
+
+  EXPECT_CALL(*kinesis_client_p, ListShards(_))
+    .WillRepeatedly(Return(list_shards_outcome));
+  Model::GetShardIteratorResult get_shard_iterator_result;
+  get_shard_iterator_result.SetShardIterator("shardIterator");
+  Model::GetShardIteratorOutcome get_shard_iterator_outcome(get_shard_iterator_result);
+  EXPECT_CALL(*kinesis_client_p, GetShardIterator(_))
+    .WillRepeatedly(Return(get_shard_iterator_outcome));
+
+  Model::Record record1;
+  record1.SetSequenceNumber("seq_number1");
+  Aws::Vector<Model::Record> expected_kinesis_records = {record1};
+  Model::GetRecordsResult get_records_result;
+  get_records_result.SetRecords(expected_kinesis_records);
+  Model::GetRecordsOutcome get_records_outcome(get_records_result);
+  EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+    .WillRepeatedly(Return(get_records_outcome));
+
+  auto fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status));
+  ASSERT_EQ(expected_kinesis_records, kinesis_records);
+  ASSERT_THAT(kinesis_records, ContainerEq(expected_kinesis_records));
 }
 
 TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
