@@ -377,7 +377,37 @@ public:
   }
 };
 
-TEST(StreamSubscriptionInstaller, StreamSubscriptionInstallerTest)
+TEST(ClientCallbackProviderSuite, defaultStreamCallbackProviderSuiteTest)
+{
+  DefaultClientCallbackProvider test_subject;
+  UINT64 custom_handle;
+  UINT64 remaining_bytes;
+
+  EXPECT_EQ(test_subject.storageOverflowPressure(custom_handle, remaining_bytes), 
+    test_subject.getStorageOverflowPressureCallback()(custom_handle, remaining_bytes));
+  EXPECT_EQ(STATUS_SUCCESS, 
+    test_subject.storageOverflowPressure(custom_handle, remaining_bytes));
+}
+
+TEST(ClientCallbackProviderSuite, defaultStreamCallbackProviderTest)
+{
+  DefaultStreamCallbackProvider test_subject;
+  UINT64 custom_data;
+  STREAM_HANDLE stream_handle;
+  UINT64 last_buffering_ack;
+  UINT64 errored_timecode;
+  STATUS status_code;
+  UINT64 dropped_frame_timecode;
+
+  EXPECT_EQ(STATUS_SUCCESS,
+    test_subject.getStreamConnectionStaleCallback()(custom_data, stream_handle, last_buffering_ack));
+  EXPECT_EQ(STATUS_SUCCESS,
+    test_subject.getStreamErrorReportCallback()(custom_data, stream_handle, errored_timecode, status_code));
+  EXPECT_EQ(STATUS_SUCCESS,
+    test_subject.getDroppedFrameReportCallback()(custom_data, stream_handle, dropped_frame_timecode));
+}
+
+TEST(StreamSubscriptionInstallerSuite, streamSubscriptionInstallerTest)
 {
   TestStreamSubscriptionInstaller test_subject;
 
@@ -617,6 +647,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
   };
   
   TestParameterReader parameter_reader(int_map, bool_map_, string_map, map_map_);
+  Aws::Vector<Model::Record> kinesis_records;
   StreamDefinitionProviderPartialMock stream_definition_provider;
   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::make_unique<NiceMock<KinesisClientMock>>();
   NiceMock<KinesisClientMock> * kinesis_client_p = kinesis_client.get();
@@ -631,12 +662,15 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
     .WillOnce(Return(kinesis_video_stream));
   EXPECT_CALL(subscription_installer_, Install(_))
     .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
+
+  auto fetch_status_not_configured = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+
+  EXPECT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status_not_configured));
  
   auto setup_status = stream_manager.KinesisVideoStreamerSetup();
 
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(setup_status));
-
-  Aws::Vector<Model::Record> kinesis_records;
+  
   Model::ListShardsResult list_shards_result;
   Model::Shard shard1; 
   shard1.SetShardId("shard1Id");
@@ -656,15 +690,46 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
   Aws::Vector<Model::Record> expected_kinesis_records = {record1};
   Model::GetRecordsResult get_records_result;
   get_records_result.SetRecords(expected_kinesis_records);
-  Model::GetRecordsOutcome get_records_outcome(get_records_result);
-  EXPECT_CALL(*kinesis_client_p, GetRecords(_))
-    .WillRepeatedly(Return(get_records_outcome));
+  {
+    InSequence get_records_seq; 
 
+    Model::GetRecordsOutcome get_records_outcome_ok(get_records_result);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_ok));
+
+    AWSError<KinesisErrors> get_records_error1(Aws::Kinesis::KinesisErrors::PROVISIONED_THROUGHPUT_EXCEEDED, true);
+    Model::GetRecordsOutcome get_records_outcome_error1(get_records_error1);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_error1));
+
+    AWSError<KinesisErrors> get_records_error2(Aws::Kinesis::KinesisErrors::EXPIRED_ITERATOR, true);
+    Model::GetRecordsOutcome get_records_outcome_error2(get_records_error2);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_error2));
+
+    AWSError<KinesisErrors> get_records_error3(Aws::Kinesis::KinesisErrors::ACCESS_DENIED, true);
+    Model::GetRecordsOutcome get_records_outcome_error3(get_records_error3);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_error3));
+  }
+  
   auto fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
 
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status));
   ASSERT_EQ(expected_kinesis_records, kinesis_records);
   ASSERT_THAT(kinesis_records, ContainerEq(expected_kinesis_records));
+
+  fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
+
+  fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
+
+  fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
 }
 
 TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
