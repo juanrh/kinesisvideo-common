@@ -66,7 +66,6 @@ else()
 
   add_executable(test_kinesis_manager test/kinesis_manager_test.cpp)
   target_include_directories(test_kinesis_manager PRIVATE ${aws_common_INCLUDE_DIRS} ${KVSSDK_EXTERNAL_INCLUDE_DIR})
-
   target_link_libraries(test_kinesis_manager
         ${GTEST_LIBRARIES}
         libgmock
@@ -79,6 +78,34 @@ else()
         ${CURL_LIBRARIES}
   )
   add_test(NAME test_kinesis_manager COMMAND test_kinesis_manager --gtest_output=xml:test_results/)
+
+  add_executable(test_stream_subscription_installer test/stream_subscription_installer_test.cpp)
+  target_include_directories(test_stream_subscription_installer PRIVATE ${aws_common_INCLUDE_DIRS} ${KVSSDK_EXTERNAL_INCLUDE_DIR})
+  target_link_libraries(test_stream_subscription_installer
+        ${GTEST_LIBRARIES}
+        pthread
+        ${aws_common_LIBRARIES}
+        ${PROJECT_NAME}
+        ${rclcpp_LIBRARIES}
+        ${PRODUCER_LIBRARY}
+        ${LOG_LIBRARY}
+        ${CURL_LIBRARIES}
+  )
+  add_test(NAME test_stream_subscription_installer COMMAND test_stream_subscription_installer --gtest_output=xml:test_results/)
+
+  add_executable(test_default_callbacks test/default_callbacks_test.cpp)
+  target_include_directories(test_default_callbacks PRIVATE ${aws_common_INCLUDE_DIRS} ${KVSSDK_EXTERNAL_INCLUDE_DIR})
+  target_link_libraries(test_default_callbacks
+        ${GTEST_LIBRARIES}
+        pthread
+        ${aws_common_LIBRARIES}
+        ${PROJECT_NAME}
+        ${rclcpp_LIBRARIES}
+        ${PRODUCER_LIBRARY}
+        ${LOG_LIBRARY}
+        ${CURL_LIBRARIES}
+  )
+  add_test(NAME test_default_callbacks COMMAND test_default_callbacks --gtest_output=xml:test_results/)
 endif()
 
 #############
