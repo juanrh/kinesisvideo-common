@@ -166,10 +166,16 @@ public:
   map<string, string> string_map_;
   map<string, map<string, string>> map_map_;
 
+
+  static string DoFormatParameterPath(const ParameterPath & param_path)
+  {
+    return param_path.get_resolved_path(PARAM_NS_SEPARATOR_CHAR, PARAM_NS_SEPARATOR_CHAR);
+  }
+
 private:
   string FormatParameterPath(const ParameterPath & param_path) const
   {
-    return param_path.get_resolved_path(PARAM_NS_SEPARATOR_CHAR, PARAM_NS_SEPARATOR_CHAR);
+    return DoFormatParameterPath(param_path);
   }
 };
 
@@ -382,14 +388,14 @@ class StreamDefinitionProviderFullMock: public StreamDefinitionProvider
 {
 public:
   MOCK_CONST_METHOD4(GetCodecPrivateData, 
-    KinesisManagerStatus(const char *, const ParameterReaderInterface &, PBYTE *, uint32_t *));
+    KinesisManagerStatus(const ParameterPath &, const ParameterReaderInterface &, PBYTE *, uint32_t *));
 
   MOCK_CONST_METHOD4(GetStreamDefinitionProxy,
-    StreamDefinition*(const char *, const ParameterReaderInterface &, const PBYTE, uint32_t));
+    StreamDefinition*(const ParameterPath &, const ParameterReaderInterface &, const PBYTE, uint32_t));
 
-  unique_ptr<StreamDefinition> GetStreamDefinition(const char * prefix,
+  unique_ptr<StreamDefinition> GetStreamDefinition(const ParameterPath & prefix,
     const ParameterReaderInterface & reader, const PBYTE codec_private_data,
-    uint32_t codec_private_data_size) const
+    uint32_t codec_private_data_size) const override
     {
       StreamDefinition* stream_definition = GetStreamDefinitionProxy(prefix, reader,
         codec_private_data, codec_private_data_size);
@@ -403,14 +409,19 @@ public:
   MOCK_CONST_METHOD2(ReadList, Aws::AwsError(const char *, std::vector<std::string> &));
   MOCK_CONST_METHOD2(ReadDouble, Aws::AwsError(const char *, double &));
   MOCK_CONST_METHOD2(ReadInt, Aws::AwsError(const char *, int &));
-  MOCK_CONST_METHOD2(ReadInt, Aws::AwsError(const ParameterPath &, int &));
   MOCK_CONST_METHOD2(ReadBool, Aws::AwsError(const char *, bool &));
   MOCK_CONST_METHOD2(ReadString, Aws::AwsError(const char *, Aws::String &));
-  MOCK_CONST_METHOD2(ReadString, Aws::AwsError(const ParameterPath &, Aws::String &));
   MOCK_CONST_METHOD2(ReadStdString, Aws::AwsError(const char *, std::string &));
-  MOCK_CONST_METHOD2(ReadStdString, Aws::AwsError(const ParameterPath &, std::string &));
   MOCK_CONST_METHOD2(ReadMap, Aws::AwsError(const char *, std::map<std::string, std::string> &));
-  MOCK_CONST_METHOD1(FormatParameterPath, std::string(const ParameterPath &));
+
+  std::string FormatParameterPath(const ParameterPath & param_path) const override
+  {
+    return param_path.get_resolved_path(kNodeNsSeparator, kParameterNsSeparator);
+  }
+
+private:
+  static constexpr char kNodeNsSeparator = PARAM_NS_SEPARATOR_CHAR;
+  static constexpr char kParameterNsSeparator = PARAM_NS_SEPARATOR_CHAR;
 };
 
 class KinesisStreamManagerMockingFixture : public ::testing::Test 
@@ -530,38 +541,35 @@ TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
 
 TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamKinesisVideoStreamSetupFailure)
 {
-  ParameterReaderMock parameter_reader; 
+  std::string stream_name = "stream_name1";
+  std::string topic_name = "topic1";
+  std::vector<uint8_t> codec_private_data = {1,2,3};
+  int stream_idx = 0;
+  int stream_count_param = 1;
+  map<string, int> int_map = {
+    {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 
+      stream_count_param}
+  };
+  map<string, bool> bool_map;
+  map<string, string> string_map = {
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.stream_name)), 
+      stream_name},
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_name)), 
+      topic_name}
+  };
+  map<string, map<string, string>> map_map;
+
+  // ParameterReaderMock parameter_reader; 
+  TestParameterReader parameter_reader(int_map, bool_map, string_map, map_map);
+
   StreamDefinitionProviderFullMock stream_definition_provider;
   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager(&parameter_reader,
     & stream_definition_provider, & subscription_installer_, std::move(kinesis_client));
-  std::string stream_name = "stream_name1";
-  std::string topic_name = "topic1";
-  std::vector<uint8_t> codec_private_data = {1,2,3};
-
-  int stream_count_param = 1;
-  EXPECT_CALL(parameter_reader, 
-    ReadInt(TypedEq<const ParameterPath &>(GetKinesisVideoParameter(kStreamParameters.stream_count)), _))
-    .WillRepeatedly(DoAll(
-      SetArgReferee<1>(stream_count_param), Return(AwsError::AWS_ERR_OK)
-    ));
-
-  // force match looking up stream_name on first index 
-  EXPECT_CALL(parameter_reader, 
-    ReadStdString(TypedEq<const ParameterPath &>(GetStreamParameterPath(0, kStreamParameters.stream_name)), _))
-    .WillRepeatedly(DoAll(
-      SetArgReferee<1>(stream_name), Return(AwsError::AWS_ERR_OK)
-    )); 
 
   // force failure on KinesisVideoStreamSetup, and thus recovery path 
   EXPECT_CALL(stream_definition_provider, GetStreamDefinitionProxy(_,_,_,_))
     .WillOnce(Return(nullptr)); 
-
-  EXPECT_CALL(parameter_reader, 
-    ReadStdString(TypedEq<const ParameterPath &>(GetStreamParameterPath(0, kStreamParameters.topic_name)), _))
-    .WillRepeatedly(DoAll(
-      SetArgReferee<1>(topic_name), Return(AwsError::AWS_ERR_OK)
-    )); 
 
   EXPECT_CALL(subscription_installer_, Uninstall(StrEq(topic_name)))
     .Times(1);
