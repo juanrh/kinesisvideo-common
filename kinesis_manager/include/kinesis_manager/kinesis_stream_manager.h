@@ -17,6 +17,7 @@
 #include <aws/kinesis/model/GetRecordsRequest.h>
 #include <aws/kinesis/model/GetRecordsResult.h>
 #include <aws/kinesis/model/Record.h>
+#include <aws_common/sdk_utils/parameter_reader.h>
 #include <aws_common/sdk_utils/client_configuration_provider.h>
 #include <aws_common/sdk_utils/logging/aws_log_system.h>
 #include <kinesis-video-producer/KinesisVideoProducer.h>
@@ -130,8 +131,8 @@ public:
    * @note Both the video producer and the given stream must have been initialized before any calls
    * to this function are made.
    * @param stream_name
-   * @param names list of names of the metadata items
-   * @param values list of values of the metadata items
+   * @param name the metadata name
+   * @param value the metadata value
    * @return KinesisManagerStatus
    */
   virtual KinesisManagerStatus PutMetadata(std::string stream_name, const std::string & name,
@@ -212,23 +213,19 @@ protected:
   StreamSubscriptionInstaller * subscription_installer_ = nullptr;
 };
 
-/**
- * Use this class to manage AWS Kinesis streams.
- *  In order to use Video Streams, make sure to call InitializeVideoProducer before creating any
- * streams.
- */
-class KinesisStreamManager : public KinesisStreamManagerInterface
+template<class KinesisVideoProducerI, class VideoStreamsI>
+class KinesisStreamManagerT : public KinesisStreamManagerInterface
 {
 public:
-  KinesisStreamManager(Aws::Client::ParameterReaderInterface * parameter_reader,
-                       StreamDefinitionProvider * stream_definition_provider,
+  KinesisStreamManagerT(const Aws::Client::ParameterReaderInterface * parameter_reader,
+                       const StreamDefinitionProvider * stream_definition_provider,
                        StreamSubscriptionInstaller * subscription_installer,
                        std::unique_ptr<KinesisClient> kinesis_client)
   : kinesis_client_(std::move(kinesis_client)),
     KinesisStreamManagerInterface(parameter_reader, stream_definition_provider,
                                   subscription_installer){};
-  KinesisStreamManager() = default;
-  ~KinesisStreamManager() = default;
+  KinesisStreamManagerT() = default;
+  ~KinesisStreamManagerT() = default;
 
   KinesisManagerStatus InitializeVideoProducer(std::string region,
     unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
@@ -267,9 +264,13 @@ public:
   KinesisManagerStatus FetchRekognitionResults(const std::string & stream_name,
                                                Aws::Vector<Model::Record> * records) override;
 
-  com::amazonaws::kinesis::video::KinesisVideoProducer * get_video_producer()
-  {
-    return video_producer_.get();
+  KinesisVideoProducerI * get_video_producer() 
+  { 
+    return video_producer_.get(); 
+  }
+
+  VideoStreamsI& get_video_streams() {
+     return video_streams_; 
   }
 
 protected:
@@ -285,9 +286,9 @@ private:
    */
   KinesisManagerStatus UpdateShardIterator(const std::string & stream_name);
 
-  std::map<std::string, shared_ptr<com::amazonaws::kinesis::video::KinesisVideoStream>> video_streams_;
+  VideoStreamsI video_streams_;
   std::map<std::string, std::vector<uint8_t>> video_streams_codec_data_;
-  unique_ptr<com::amazonaws::kinesis::video::KinesisVideoProducer> video_producer_;
+  unique_ptr<KinesisVideoProducerI> video_producer_;
   unique_ptr<KinesisClient> kinesis_client_;
 
   struct RekognitionStreamInfo
@@ -299,5 +300,16 @@ private:
     rekognition_config_; /* Video stream name to RekognitionStreamInfo */
 };
 
+using VideoStreamsImpl = std::map<std::string, shared_ptr<com::amazonaws::kinesis::video::KinesisVideoStream>>;
+
+/**
+ * Use this class to manage AWS Kinesis streams.
+ *  In order to use Video Streams, make sure to call InitializeVideoProducer before creating any
+ * streams.
+ */
+using KinesisStreamManager = KinesisStreamManagerT<com::amazonaws::kinesis::video::KinesisVideoProducer, VideoStreamsImpl>;
+
 }  // namespace Kinesis
 }  // namespace Aws
+
+#include "kinesis_stream_manager.hpp"
