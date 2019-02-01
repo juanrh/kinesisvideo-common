@@ -16,19 +16,20 @@
 #include <kinesis_manager/default_callbacks.h>
 #include <gtest/gtest.h>
 
-using namespace Aws::Kinesis;
+// using namespace Aws::Kinesis;
 
-// TEST(ClientCallbackProviderSuite, defaultClientCallbackProviderTest)
-// {
-//   DefaultClientCallbackProvider test_subject;
-//   UINT64 custom_handle;
-//   UINT64 remaining_bytes;
+TEST(ClientCallbackProviderSuite, defaultClientCallbackProviderTest)
+{
+  Aws::Kinesis::DefaultClientCallbackProvider test_subject;
+  // ClientCallbackProvider * foo;
+  // UINT64 custom_handle;
+  // UINT64 remaining_bytes;
 
-//   EXPECT_EQ(test_subject.storageOverflowPressure(custom_handle, remaining_bytes), 
-//     test_subject.getStorageOverflowPressureCallback()(custom_handle, remaining_bytes));
-//   EXPECT_EQ(STATUS_SUCCESS, 
-//     test_subject.storageOverflowPressure(custom_handle, remaining_bytes));
-// }
+  // EXPECT_EQ(test_subject.storageOverflowPressure(custom_handle, remaining_bytes), 
+  //   test_subject.getStorageOverflowPressureCallback()(custom_handle, remaining_bytes));
+  // EXPECT_EQ(STATUS_SUCCESS, 
+  //   test_subject.storageOverflowPressure(custom_handle, remaining_bytes));
+}
 
 // TEST(ClientCallbackProviderSuite, defaultStreamCallbackProviderTest)
 // {

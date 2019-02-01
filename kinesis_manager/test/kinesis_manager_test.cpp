@@ -403,27 +403,6 @@ public:
     }
 };
 
-class ParameterReaderMock : public ParameterReaderInterface 
-{
-public:
-  MOCK_CONST_METHOD2(ReadList, Aws::AwsError(const char *, std::vector<std::string> &));
-  MOCK_CONST_METHOD2(ReadDouble, Aws::AwsError(const char *, double &));
-  MOCK_CONST_METHOD2(ReadInt, Aws::AwsError(const char *, int &));
-  MOCK_CONST_METHOD2(ReadBool, Aws::AwsError(const char *, bool &));
-  MOCK_CONST_METHOD2(ReadString, Aws::AwsError(const char *, Aws::String &));
-  MOCK_CONST_METHOD2(ReadStdString, Aws::AwsError(const char *, std::string &));
-  MOCK_CONST_METHOD2(ReadMap, Aws::AwsError(const char *, std::map<std::string, std::string> &));
-
-  std::string FormatParameterPath(const ParameterPath & param_path) const override
-  {
-    return param_path.get_resolved_path(kNodeNsSeparator, kParameterNsSeparator);
-  }
-
-private:
-  static constexpr char kNodeNsSeparator = PARAM_NS_SEPARATOR_CHAR;
-  static constexpr char kParameterNsSeparator = PARAM_NS_SEPARATOR_CHAR;
-};
-
 class KinesisStreamManagerMockingFixture : public ::testing::Test 
 {
 public:
@@ -558,8 +537,6 @@ TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamK
       topic_name}
   };
   map<string, map<string, string>> map_map;
-
-  // ParameterReaderMock parameter_reader; 
   TestParameterReader parameter_reader(int_map, bool_map, string_map, map_map);
 
   StreamDefinitionProviderFullMock stream_definition_provider;
