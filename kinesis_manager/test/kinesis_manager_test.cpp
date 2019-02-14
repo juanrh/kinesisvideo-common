@@ -601,7 +601,8 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
   TestParameterReader parameter_reader(int_map, bool_map_, string_map, map_map_);
   Aws::Vector<Model::Record> kinesis_records;
   StreamDefinitionProviderPartialMock stream_definition_provider;
-  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::make_unique<NiceMock<KinesisClientMock>>();
+  // This takes almost 20 seconds due to call to parent class with no AWS credentials available
+  auto kinesis_client = std::make_unique<NiceMock<KinesisClientMock>>();
   NiceMock<KinesisClientMock> * kinesis_client_p = kinesis_client.get();
   KinesisStreamManager stream_manager(&parameter_reader, & stream_definition_provider, 
     & subscription_installer_, std::move(kinesis_client));
@@ -686,49 +687,54 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
-// {
-//   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
-//   KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
-//     & subscription_installer_, std::move(kinesis_client));
+TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
+{
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
+    & subscription_installer_, std::move(kinesis_client));
 
-//   /* Before calling InitializeVideoProducer */
-//   KinesisManagerStatus status =
-//     stream_manager.InitializeVideoStream(move(unique_ptr<StreamDefinition>()));
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);  
+  /* Before calling InitializeVideoProducer */
+  KinesisManagerStatus status =
+    stream_manager.InitializeVideoStream(move(unique_ptr<StreamDefinition>()));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);  
 
-//   ASSERT_FALSE(stream_manager.get_video_producer());
-//   unique_ptr<StreamDefinition> stream_definition = 
-//     DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_);
-//   ASSERT_TRUE(stream_manager.get_video_producer());
+  ASSERT_FALSE(stream_manager.get_video_producer());
+  unique_ptr<StreamDefinition> stream_definition = 
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_, 
+      // this takes almost 20 seconds because an actual client is created without AWS credentials available
+      KinesisStreamManagerInterface::CreateDefaultVideoProducer);
+  ASSERT_TRUE(stream_manager.get_video_producer());
 
-//   /* Video producer has been created but the stream definition is empty. */
-//   status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
-// }
+  /* Video producer has been created but the stream definition is empty. */
+  status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+}
 
-// TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVideoProducerMock)
-// {
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager;
-//   ASSERT_FALSE(stream_manager.get_video_producer());
-//   unique_ptr<StreamDefinition> stream_definition = 
-//     DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_);
-//   ASSERT_TRUE(stream_manager.get_video_producer());
+TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVideoProducerMock)
+{
+  KinesisStreamManager  stream_manager;
+  ASSERT_FALSE(stream_manager.get_video_producer());
+  auto video_producer = std::make_unique<KinesisVideoProducerMock>();
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-//   /* Video producer has been created but the stream definition is empty. */
-//   KinesisManagerStatus status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+    .WillOnce(Return(video_stream_mock));
 
-//   std::string stream_name = "stream_name1";
-//   auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
-//   EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
-//     .WillOnce(Return(kinesis_video_stream));
-//   status = stream_manager.InitializeVideoStream(move(stream_definition));
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
-// }
+  auto stream_definition = 
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"), parameter_reader_,
+      ConstVideoProducerFactory(std::move(video_producer)));
+  ASSERT_TRUE(stream_manager.get_video_producer());
+
+  /* Video producer has been created but the stream definition is empty. */
+  KinesisManagerStatus status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
+  ASSERT_EQ(KINESIS_MANAGER_STATUS_INVALID_INPUT, status);
+  
+  std::string stream_name = "stream_name1";
+  status = stream_manager.InitializeVideoStream(move(stream_definition));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, mockPutFrameTest)
 // {

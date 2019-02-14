@@ -179,6 +179,13 @@ public:
   virtual KinesisManagerStatus FetchRekognitionResults(const std::string & stream_name,
                                                        Aws::Vector<Model::Record> * records) = 0;
 
+  static unique_ptr<KinesisVideoProducerInterface> CreateDefaultVideoProducer(
+    std::string region,
+    unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
+    unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
+    unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
+    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider);
+
 protected:
   /**
    * This function orchestrates the universal setup of a video streaming application.
@@ -223,13 +230,6 @@ protected:
   const Aws::Client::ParameterReaderInterface * parameter_reader_ = nullptr;
   const StreamDefinitionProvider * stream_definition_provider_ = nullptr;
   StreamSubscriptionInstaller * subscription_installer_ = nullptr;
-
-  static unique_ptr<KinesisVideoProducerInterface> CreateDefaultVideoProducer(
-    std::string region,
-    unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
-    unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
-    unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
-    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider);
 };
 
 /**
