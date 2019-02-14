@@ -1071,37 +1071,6 @@ TEST(KinesisStreamManagerSuite, putFrameTest)
 }
 #endif
 
-TEST(ClientCallbackProviderSuite, defaultClientCallbackProviderTest)
-{
-  Aws::Kinesis::DefaultClientCallbackProvider test_subject;
-  ClientCallbackProvider * foo;
-  UINT64 custom_handle;
-  UINT64 remaining_bytes;
-
-  EXPECT_EQ(test_subject.storageOverflowPressure(custom_handle, remaining_bytes), 
-    test_subject.getStorageOverflowPressureCallback()(custom_handle, remaining_bytes));
-  EXPECT_EQ(STATUS_SUCCESS, 
-    test_subject.storageOverflowPressure(custom_handle, remaining_bytes));
-}
-
-TEST(ClientCallbackProviderSuite, defaultStreamCallbackProviderTest)
-{
-  DefaultStreamCallbackProvider test_subject;
-  UINT64 custom_data;
-  STREAM_HANDLE stream_handle;
-  UINT64 last_buffering_ack;
-  UINT64 errored_timecode;
-  STATUS status_code;
-  UINT64 dropped_frame_timecode;
-
-  EXPECT_EQ(STATUS_SUCCESS,
-    test_subject.getStreamConnectionStaleCallback()(custom_data, stream_handle, last_buffering_ack));
-  EXPECT_EQ(STATUS_SUCCESS,
-    test_subject.getStreamErrorReportCallback()(custom_data, stream_handle, errored_timecode, status_code));
-  EXPECT_EQ(STATUS_SUCCESS,
-    test_subject.getDroppedFrameReportCallback()(custom_data, stream_handle, dropped_frame_timecode));
-}
-
 int main(int argc, char ** argv)
 {
   LOG_CONFIGURE_STDOUT("ERROR"); 
