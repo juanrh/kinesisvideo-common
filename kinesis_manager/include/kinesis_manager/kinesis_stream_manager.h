@@ -111,9 +111,11 @@ public:
    * Initializes the video producer using the default callbacks provided as part of the Kinesis
    * Manager package.
    * @param region
+   * @param video_producer_factory
    * @return KinesisManagerStatus
    */
-  virtual KinesisManagerStatus InitializeVideoProducer(std::string region) = 0;
+  virtual KinesisManagerStatus InitializeVideoProducer(std::string region,
+    VideoProducerFactory video_producer_factory = KinesisStreamManagerInterface::CreateDefaultVideoProducer) = 0;
 
   /**
    * Initializes a video stream using the given stream definition.
@@ -254,7 +256,8 @@ public:
     unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
     unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider, 
     KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory = KinesisStreamManagerInterface::CreateDefaultVideoProducer) override;
-  KinesisManagerStatus InitializeVideoProducer(std::string region) override;
+  KinesisManagerStatus InitializeVideoProducer(std::string region,
+    KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory = KinesisStreamManagerInterface::CreateDefaultVideoProducer) override;
 
   KinesisManagerStatus InitializeVideoStream(
     unique_ptr<com::amazonaws::kinesis::video::StreamDefinition> stream_definition) override;

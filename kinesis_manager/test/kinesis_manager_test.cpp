@@ -21,6 +21,8 @@
 #include <kinesis_manager/common.h>
 #include <kinesis_manager/kinesis_stream_manager.h>
 #include <kinesis_manager/stream_definition_provider.h>
+#include <aws/kinesis/model/GetShardIteratorRequest.h>
+#include <aws/kinesis/model/ListShardsRequest.h>
 
 using namespace std;
 using namespace com::amazonaws::kinesis::video;
@@ -233,275 +235,261 @@ static bool are_streams_equivalent(unique_ptr<StreamDefinition> stream1,
   return result;
 }
 
-// /**
-//  * Initializes the video producer and generates a basic stream definition.
-//  */
-// template<class KinesisVideoProducerI, class VideoStreamsI>
-// unique_ptr<StreamDefinition> DefaultProducerSetup(
-//   KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI> & stream_manager, 
-//   string region, string test_prefix, std::shared_ptr<ParameterReaderInterface> parameter_reader)
-// {
-// #ifdef PLATFORM_TESTING_ACCESS_KEY
-//   setenv("AWS_ACCESS_KEY_ID", PLATFORM_TESTING_ACCESS_KEY, 1);
-// #endif
-// #ifdef PLATFORM_TESTING_SECRET_KEY
-//   setenv("AWS_SECRET_ACCESS_KEY", PLATFORM_TESTING_SECRET_KEY, 1);
-// #endif
-//   stream_manager.InitializeVideoProducer(region);
+/**
+ * Initializes the video producer and generates a basic stream definition.
+ */
+unique_ptr<StreamDefinition> DefaultProducerSetup(
+  KinesisStreamManager & stream_manager, 
+  string region, string test_prefix, std::shared_ptr<ParameterReaderInterface> parameter_reader,
+  KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory)
+{
+#ifdef PLATFORM_TESTING_ACCESS_KEY
+  setenv("AWS_ACCESS_KEY_ID", PLATFORM_TESTING_ACCESS_KEY, 1);
+#endif
+#ifdef PLATFORM_TESTING_SECRET_KEY
+  setenv("AWS_SECRET_ACCESS_KEY", PLATFORM_TESTING_SECRET_KEY, 1);
+#endif
+  stream_manager.InitializeVideoProducer(region, video_producer_factory);
 
-//   StreamDefinitionProvider stream_definition_provider;
-//   unique_ptr<StreamDefinition> stream_definition = stream_definition_provider.GetStreamDefinition(
-//     ParameterPath(test_prefix.c_str()), *parameter_reader, nullptr, 0);
-//   return move(stream_definition);
-// }
+  StreamDefinitionProvider stream_definition_provider;
+  unique_ptr<StreamDefinition> stream_definition = stream_definition_provider.GetStreamDefinition(
+    ParameterPath(test_prefix.c_str()), *parameter_reader, nullptr, 0);
+  return move(stream_definition);
+}
 
-// /**
-//  * Initializes the video producer and generates a basic stream definition.
-//  */
-// template<class KinesisVideoProducerI, class VideoStreamsI>
-// unique_ptr<StreamDefinition> DefaultProducerSetup(
-//   KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI> & stream_manager, 
-//   string region, string test_prefix)
-// {
-//    std::shared_ptr<ParameterReaderInterface> parameter_reader = 
-//     std::make_shared<TestParameterReader>(test_prefix);
-//   return DefaultProducerSetup(stream_manager, region, test_prefix, parameter_reader);
-// }
+/**
+ * Initializes the video producer and generates a basic stream definition.
+ */
+unique_ptr<StreamDefinition> DefaultProducerSetup(
+  KinesisStreamManager & stream_manager, 
+  string region, string test_prefix, 
+  KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory)
+{
+   std::shared_ptr<ParameterReaderInterface> parameter_reader = 
+    std::make_shared<TestParameterReader>(test_prefix);
+  return DefaultProducerSetup(stream_manager, region, test_prefix, parameter_reader, video_producer_factory);
+}
 
-// /**
-//  * Mock class for Aws::Kinesis::KinesisClient, fully functional as all it's methods are virtual.
-//  */
-// class KinesisClientMock : public KinesisClient
-// {
-// public:
-//   MOCK_CONST_METHOD0(GetServiceClientName, const char *());
-//   MOCK_CONST_METHOD1(ListShards, Model::ListShardsOutcome(const Model::ListShardsRequest&));
-//   MOCK_CONST_METHOD1(GetShardIterator, 
-//     Model::GetShardIteratorOutcome(const Model::GetShardIteratorRequest&));
-//   MOCK_CONST_METHOD1(GetRecords,
-//     Model::GetRecordsOutcome(const Model::GetRecordsRequest&));
-// };
+/**
+ * Mock class for Aws::Kinesis::KinesisClient, fully functional as all it's methods are virtual.
+ */
+class KinesisClientMock : public KinesisClient
+{
+public:
+  MOCK_CONST_METHOD0(GetServiceClientName, const char *());
+  MOCK_CONST_METHOD1(ListShards, Model::ListShardsOutcome(const Model::ListShardsRequest&));
+  MOCK_CONST_METHOD1(GetShardIterator, 
+    Model::GetShardIteratorOutcome(const Model::GetShardIteratorRequest&));
+  MOCK_CONST_METHOD1(GetRecords,
+    Model::GetRecordsOutcome(const Model::GetRecordsRequest&));
+};
 
-// /**
-//  * Mock for com::amazonaws::kinesis::video:KinesisVideoStream. As that class doesn't have virtual methods this mock 
-//  * uses the techniques described on https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#mocking-nonvirtual-methods 
-//  */
-// class KinesisVideoStreamMock
-// {
-// public:
-//   MOCK_CONST_METHOD0(isReady, bool());
-//   MOCK_METHOD0(stop, bool());
-//   MOCK_METHOD1(putFrame, bool(KinesisVideoFrame));
-//   MOCK_METHOD3(putFragmentMetadata, bool(const std::string&, const std::string&, bool));
-// };
+class KinesisVideoStreamMock : public KinesisVideoStreamInterface
+{
+public: 
+  MOCK_CONST_METHOD0(IsReady, bool());
+  MOCK_METHOD0(Stop, bool());
+  MOCK_CONST_METHOD1(PutFrame, bool(KinesisVideoFrame));
+  MOCK_METHOD3(PutFragmentMetadata, bool(const std::string&, const std::string&, bool));
+};
 
-// class VideoStreamsMock 
-// {
-// public:
-//   MOCK_CONST_METHOD1(count, VideoStreamsImpl::size_type(std::string));
-//   MOCK_METHOD1(insert,void(VideoStreamsImpl::value_type));
-//   MOCK_CONST_METHOD1(at, std::shared_ptr<KinesisVideoStreamMock>(VideoStreamsImpl::key_type));
-//   MOCK_METHOD1(erase, void(VideoStreamsImpl::key_type));
-// }; 
+class KinesisVideoProducerMock : public KinesisVideoProducerInterface
+{
+public:
+  std::shared_ptr<KinesisVideoStreamInterface> createStreamSync(std::unique_ptr<StreamDefinition> stream_definition) {
+    return createStreamSyncProxy(stream_definition.get());
+  }
+  MOCK_METHOD1(createStreamSyncProxy, 
+    std::shared_ptr<KinesisVideoStreamInterface>(StreamDefinition* stream_definition));
+  MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream));
+};
 
-// /**
-//  * Mock for com::amazonaws::kinesis::video::KinesisVideoProducer. As that class doesn't have virtual methods this mock 
-//  * uses the techniques described on https://github.com/google/googletest/blob/master/googlemock/docs/CookBook.md#mocking-nonvirtual-methods
-//  */
-// class KinesisVideoProducerMock
-// {
-// public:
-//   std::shared_ptr<KinesisVideoStream> createStreamSync(std::unique_ptr<StreamDefinition> stream_definition) {
-//     return createStreamSyncProxy(stream_definition.get());
-//   }
-//   MOCK_METHOD1(createStreamSyncProxy, std::shared_ptr<KinesisVideoStream>(StreamDefinition* stream_definition));
-//   MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStream> kinesis_video_stream));
-//   MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStreamMock> kinesis_video_stream));
-// };
+namespace Aws {
+namespace Kinesis {
 
-// namespace Aws {
-// namespace Kinesis {
+namespace Model
+{
+  bool operator==(const Record & left, const Record & right)
+  {
+    bool result = true;
 
-// template<> 
-// KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl>::InitializeVideoProducer(
-//   std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
-//   unique_ptr<ClientCallbackProvider> client_callback_provider,
-//   unique_ptr<StreamCallbackProvider> stream_callback_provider,
-//   unique_ptr<CredentialProvider> credential_provider) 
-//   {
-//     this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
-//     return KINESIS_MANAGER_STATUS_SUCCESS;
-//   }
+    result &= (left.GetSequenceNumber() == right.GetSequenceNumber());
+    result &= (left.GetApproximateArrivalTimestamp() == right.GetApproximateArrivalTimestamp());
+    result &= (left.GetData() == right.GetData());
+    result &= (left.GetPartitionKey() == right.GetPartitionKey());
+    result &= (left.GetEncryptionType() == right.GetEncryptionType());
 
-// template<> 
-// KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock>::InitializeVideoProducer(
-//   std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
-//   unique_ptr<ClientCallbackProvider> client_callback_provider,
-//   unique_ptr<StreamCallbackProvider> stream_callback_provider,
-//   unique_ptr<CredentialProvider> credential_provider) 
-//   {
-//     this->video_producer_ = std::make_unique<KinesisVideoProducerMock>();
-//     return KINESIS_MANAGER_STATUS_SUCCESS;
-//   }
+    return true;
+  }
 
-// namespace Model
-// {
-//   bool operator==(const Record & left, const Record & right)
-//   {
-//     bool result = true;
+}  // namespace Model
+}  // namespace Kinesis
+}  // namespace Aws
 
-//     result &= (left.GetSequenceNumber() == right.GetSequenceNumber());
-//     result &= (left.GetApproximateArrivalTimestamp() == right.GetApproximateArrivalTimestamp());
-//     result &= (left.GetData() == right.GetData());
-//     result &= (left.GetPartitionKey() == right.GetPartitionKey());
-//     result &= (left.GetEncryptionType() == right.GetEncryptionType());
+class StreamSubscriptionInstallerMock : public StreamSubscriptionInstaller
+{
+public: 
+  MOCK_CONST_METHOD1(Install, KinesisManagerStatus(const StreamSubscriptionDescriptor & descriptor));
+  MOCK_METHOD1(Uninstall, void(const std::string & topic_name));
+};
 
-//     return true;
-//   }
+class StreamDefinitionProviderPartialMock : public StreamDefinitionProvider
+{
+public:
+  MOCK_CONST_METHOD4(GetCodecPrivateData, 
+    KinesisManagerStatus(const ParameterPath &, const ParameterReaderInterface &, PBYTE *, uint32_t *));
+};
 
-// }  // namespace Model
-// }  // namespace Kinesis
-// }  // namespace Aws
+class StreamDefinitionProviderFullMock: public StreamDefinitionProvider
+{
+public:
+  MOCK_CONST_METHOD4(GetCodecPrivateData, 
+    KinesisManagerStatus(const ParameterPath &, const ParameterReaderInterface &, PBYTE *, uint32_t *));
 
-// /**
-//  * Mock for com::amazonaws::kinesis::video::KinesisVideoProducer. As that class doesn't have virtual methods, 
-//  * and we cannot modify com::amazonaws::kinesis::video::KinesisVideoProducer, this is just a placeholder, that
-//  * cannot be used to assert or spy. It's mostly used in the constructor of KinesisVideoStreamOpaqueMock
-//  */
-// class KinesisVideoProducerOpaqueMock: public KinesisVideoProducer {};
+  MOCK_CONST_METHOD4(GetStreamDefinitionProxy,
+    StreamDefinition*(const ParameterPath &, const ParameterReaderInterface &, const PBYTE, uint32_t));
 
-// const static KinesisVideoProducerOpaqueMock kOpaqueProducer;
+  unique_ptr<StreamDefinition> GetStreamDefinition(const ParameterPath & prefix,
+    const ParameterReaderInterface & reader, const PBYTE codec_private_data,
+    uint32_t codec_private_data_size) const override
+    {
+      StreamDefinition* stream_definition = GetStreamDefinitionProxy(prefix, reader,
+        codec_private_data, codec_private_data_size);
+      return std::unique_ptr<StreamDefinition>(stream_definition);
+    }
+};
 
-// class KinesisVideoStreamOpaqueMock : public KinesisVideoStream
-// {
-// public:
-//   KinesisVideoStreamOpaqueMock(const std::string stream_name) : KinesisVideoStream(
-//     kOpaqueProducer, stream_name) {}
-// };
+KinesisStreamManagerInterface::VideoProducerFactory ConstVideoProducerFactory(
+  unique_ptr<KinesisVideoProducerInterface> video_producer)
+  {
+    return [& video_producer](
+        std::string region,
+        unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
+        unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
+        unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
+        unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider
+      ) -> unique_ptr<KinesisVideoProducerInterface> {
+        return std::move(video_producer);
+      };
+  }
 
-// class StreamSubscriptionInstallerMock : public StreamSubscriptionInstaller
-// {
-// public: 
-//   MOCK_CONST_METHOD1(Install, KinesisManagerStatus(const StreamSubscriptionDescriptor & descriptor));
-//   MOCK_METHOD1(Uninstall, void(const std::string & topic_name));
-// };
+class KinesisStreamManagerMockingFixture : public ::testing::Test 
+{
+public:
+  KinesisStreamManagerMockingFixture() 
+  {
+    parameter_reader_ = std::make_shared<TestParameterReader>(int_map_, bool_map_, string_map_, map_map_);
+  }
 
-// class StreamDefinitionProviderPartialMock : public StreamDefinitionProvider
-// {
-// public:
-//   MOCK_CONST_METHOD4(GetCodecPrivateData, 
-//     KinesisManagerStatus(const ParameterPath &, const ParameterReaderInterface &, PBYTE *, uint32_t *));
-// };
+protected:
+  string test_prefix_ = "some/test/prefix";
+  string encoded_string_ = "aGVsbG8gd29ybGQ=";
+  map<string, int> int_map_ = {};
+  map<string, bool> bool_map_ = {};
+  map<string, string> tags_;
+  map<string, map<string, string>> map_map_ = {};
+  map<string, string> string_map_ = {
+    {test_prefix_ + "codecPrivateData", encoded_string_},
+  };
 
-// class StreamDefinitionProviderFullMock: public StreamDefinitionProvider
-// {
-// public:
-//   MOCK_CONST_METHOD4(GetCodecPrivateData, 
-//     KinesisManagerStatus(const ParameterPath &, const ParameterReaderInterface &, PBYTE *, uint32_t *));
+  std::shared_ptr<ParameterReaderInterface> parameter_reader_; 
 
-//   MOCK_CONST_METHOD4(GetStreamDefinitionProxy,
-//     StreamDefinition*(const ParameterPath &, const ParameterReaderInterface &, const PBYTE, uint32_t));
+  StreamDefinitionProvider stream_definition_provider_;
+  StreamSubscriptionInstallerMock subscription_installer_ ;
+};
 
-//   unique_ptr<StreamDefinition> GetStreamDefinition(const ParameterPath & prefix,
-//     const ParameterReaderInterface & reader, const PBYTE codec_private_data,
-//     uint32_t codec_private_data_size) const override
-//     {
-//       StreamDefinition* stream_definition = GetStreamDefinitionProxy(prefix, reader,
-//         codec_private_data, codec_private_data_size);
-//       return std::unique_ptr<StreamDefinition>(stream_definition);
-//     }
-// };
+TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataNotInitialized)
+{
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
+    & subscription_installer_, std::move(kinesis_client));
+  std::string stream_name = "stream_name1";
+  std::string metadata_name = "metadata_name";
+  std::string metadata_value = "metadata_value";
 
-// class KinesisStreamManagerMockingFixture : public ::testing::Test 
-// {
-// public:
-//   KinesisStreamManagerMockingFixture() 
-//   {
-//     parameter_reader_ = std::make_shared<TestParameterReader>(int_map_, bool_map_, string_map_, map_map_);
-//   }
+  auto status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
 
-// protected:
-//   string test_prefix_ = "some/test/prefix";
-//   string encoded_string_ = "aGVsbG8gd29ybGQ=";
-//   map<string, int> int_map_ = {};
-//   map<string, bool> bool_map_ = {};
-//   map<string, string> tags_;
-//   map<string, map<string, string>> map_map_ = {};
-//   map<string, string> string_map_ = {
-//     {test_prefix_ + "codecPrivateData", encoded_string_},
-//   };
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+}
 
-//   std::shared_ptr<ParameterReaderInterface> parameter_reader_; 
-
-//   StreamDefinitionProvider stream_definition_provider_;
-//   StreamSubscriptionInstallerMock subscription_installer_ ;
-// };
-
-// TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataNotInitialized)
-// {
-//   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
-//   KinesisStreamManager stream_manager(parameter_reader_.get(), & stream_definition_provider_, 
-//     & subscription_installer_, std::move(kinesis_client));
-//   std::string stream_name = "stream_name1";
-//   std::string metadata_name = "metadata_name";
-//   std::string metadata_value = "metadata_value";
-
-//   auto status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
-
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
-// }
-
-// TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
-// {
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
-//   std::string stream_name = "stream_name1";
-//   std::string metadata_name = "metadata_name";
-//   std::string metadata_value = "metadata_value";
-
-//   stream_manager.InitializeVideoProducer(string("us-west-2"));
-//   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
-//   EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
-//     .WillRepeatedly(Return(1));
-//   EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
-//     .WillRepeatedly(Return(video_stream_mock));
-//   EXPECT_CALL(*video_stream_mock, isReady())
-//     .WillOnce(Return(false));
-
-//   auto status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
+{
+  KinesisStreamManager stream_manager;
+  std::string test_prefix = "kinesis_video";
+  std::shared_ptr<ParameterReaderInterface> parameter_reader = 
+    std::make_shared<TestParameterReader>(test_prefix);
+  std::string stream_name;
+  parameter_reader->ReadParam(GetKinesisVideoParameter(kStreamParameters.stream_name), stream_name);
+  std::string metadata_name = "metadata_name";
+  std::string metadata_value = "metadata_value";
+  std::string region = "us-west-2";
+  auto video_producer = std::make_unique<KinesisVideoProducerMock>();
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
   
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
-// }
+  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+    .WillOnce(Return(video_stream_mock));
+  EXPECT_CALL(*video_stream_mock, IsReady())
+    .WillOnce(Return(false));
+  
+  auto stream_definition = DefaultProducerSetup(stream_manager, region, test_prefix, 
+    ConstVideoProducerFactory(std::move(video_producer)));
+    
+  auto status = stream_manager.InitializeVideoStream(std::move(stream_definition));
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
+
+  status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
+  ASSERT_EQ(KINESIS_MANAGER_STATUS_PUTMETADATA_FAILED, status);
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
 // {
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
+//   KinesisStreamManager stream_manager;
 //   std::string stream_name = "stream_name1";
 //   std::string metadata_name = "metadata_name";
 //   std::string metadata_value = "metadata_value";
-
-//   stream_manager.InitializeVideoProducer(string("us-west-2"));
+//   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
 //   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
-//   EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
-//     .WillRepeatedly(Return(1));
-//   EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
-//     .WillRepeatedly(Return(video_stream_mock));
-//   ON_CALL(*video_stream_mock, isReady())
+
+//   EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+//     .WillOnce(Return(video_stream_mock));
+//   // EXPECT_CALL(*video_stream_mock, IsReady())
+//   //   .WillOnce(Return(false));
+//   ON_CALL(*video_stream_mock, IsReady())
 //     .WillByDefault(Return(true));
+
+
+//   auto status1 = stream_manager.InitializeVideoProducer(string("us-west-2"), 
+//     ConstVideoProducerFactory(std::move(video_producer)));
+//   EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status1);
+//   // auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+
+//   // EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
+//   //   .WillRepeatedly(Return(1));
+//   // EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
+//   //   .WillRepeatedly(Return(video_stream_mock));
+//   // ON_CALL(*video_stream_mock, isReady())
+//   //   .WillByDefault(Return(true));
 
 //   {
 //     InSequence video_stream_mock_seq;
   
-//     EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+//     // EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+//     //   .WillOnce(Return(false));
+
+//     // EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+//     //   .WillOnce(Return(true));
+
+//     EXPECT_CALL(*video_stream_mock, PutFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
 //       .WillOnce(Return(false));
 
-//     EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+//     EXPECT_CALL(*video_stream_mock, PutFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
 //       .WillOnce(Return(true));
 //   }
 
-//   auto status1 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status1));
-//   auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status2));
+//   auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status2));
+//   auto status3 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
+//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status3));
 // }
 
 // TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)

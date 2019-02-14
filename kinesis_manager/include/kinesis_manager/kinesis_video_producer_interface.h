@@ -34,7 +34,6 @@ public:
   virtual std::shared_ptr<KinesisVideoStreamInterface> createStreamSync(
     std::unique_ptr<com::amazonaws::kinesis::video::StreamDefinition> stream_definition) = 0;
 
-
   /**
    * Frees the stream and removes it from the producer stream list.
    *
@@ -45,6 +44,8 @@ public:
    */
   virtual void freeStream(
     std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream) = 0;
+
+  virtual ~KinesisVideoProducerInterface(){};
 };
 
 class KinesisVideoProducerImpl : public KinesisVideoProducerInterface

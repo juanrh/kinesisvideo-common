@@ -60,7 +60,11 @@ public:
     const std::string& value, bool persistent = true) = 0;
 
   virtual std::shared_ptr<com::amazonaws::kinesis::video::KinesisVideoStream> 
-    GetKinesisVideoStream() = 0;
+    GetKinesisVideoStream() {
+      return nullptr;
+    };
+
+  virtual ~KinesisVideoStreamInterface() {};
 };
 
 class KinesisVideoStreamImpl : public KinesisVideoStreamInterface

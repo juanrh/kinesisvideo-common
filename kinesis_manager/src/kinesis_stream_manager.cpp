@@ -207,7 +207,8 @@ KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(
   return KINESIS_MANAGER_STATUS_SUCCESS;
 }
 
-KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(std::string region)
+KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(std::string region,
+    KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory)
 {
   unique_ptr<DeviceInfoProvider> device_provider = make_unique<DefaultDeviceInfoProvider>();
   unique_ptr<ClientCallbackProvider> client_callback_provider =
@@ -224,7 +225,8 @@ KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(std::string r
   }
   return InitializeVideoProducer(
     region, std::move(device_provider), std::move(client_callback_provider),
-    std::move(stream_callback_provider), std::move(credentials_provider));
+    std::move(stream_callback_provider), std::move(credentials_provider),
+    video_producer_factory);
 }
 
 KinesisManagerStatus KinesisStreamManager::InitializeVideoStream(
