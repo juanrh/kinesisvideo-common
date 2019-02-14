@@ -20,7 +20,7 @@ add_subdirectory(kvssdk)
 ## Library ##
 #############
 ## Declare a C++ library
-add_library(${PROJECT_NAME} SHARED src/stream_definition_provider.cpp src/default_callbacks.cpp)
+add_library(${PROJECT_NAME} SHARED src/stream_definition_provider.cpp src/kinesis_stream_manager.cpp src/default_callbacks.cpp)
 set(${PROJECT_NAME}_IMPORTED_LIBRARIES producer log4cplus)
 add_dependencies(${PROJECT_NAME} KVS_SDK_IMPORT)
 

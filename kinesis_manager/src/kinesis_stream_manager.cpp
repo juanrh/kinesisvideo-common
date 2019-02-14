@@ -12,8 +12,6 @@
  * express or implied. See the License for the specific language governing
  * permissions and limitations under the License.
  */
-#pragma once
-
 #include <aws/core/utils/logging/LogMacros.h>
 #include <aws/kinesis/model/GetShardIteratorRequest.h>
 #include <aws/kinesis/model/ListShardsRequest.h>
@@ -22,6 +20,7 @@
 #include <kinesis-video-producer/KinesisVideoProducer.h>
 #include <kinesis_manager/default_callbacks.h>
 #include <kinesis_manager/kinesis_client_facade.h>
+#include <kinesis_manager/kinesis_stream_manager.h>
 #include <kinesis_manager/stream_subscription_installer.h>
 
 using namespace com::amazonaws::kinesis::video;
@@ -165,11 +164,10 @@ KinesisManagerStatus KinesisStreamManagerInterface::KinesisVideoStreamerSetup()
   return status;
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeStreamSubscription(
+KinesisManagerStatus KinesisStreamManager::InitializeStreamSubscription(
   const StreamSubscriptionDescriptor & descriptor)
 {
-  KinesisManagerStatus status = this->subscription_installer_->Install(descriptor);
+  KinesisManagerStatus status = subscription_installer_->Install(descriptor);
   if (KINESIS_MANAGER_STATUS_SUCCEEDED(status) && !descriptor.rekognition_data_stream.empty()) {
     RekognitionStreamInfo rekognition_info{
       .data_stream_name = Aws::String(descriptor.rekognition_data_stream.c_str())};
@@ -178,8 +176,7 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
   return status;
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeVideoProducer(
+KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(
   std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
   unique_ptr<ClientCallbackProvider> client_callback_provider,
   unique_ptr<StreamCallbackProvider> stream_callback_provider,
@@ -198,8 +195,7 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
   return KINESIS_MANAGER_STATUS_SUCCESS;
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeVideoProducer(std::string region)
+KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(std::string region)
 {
   unique_ptr<DeviceInfoProvider> device_provider = make_unique<DefaultDeviceInfoProvider>();
   unique_ptr<ClientCallbackProvider> client_callback_provider =
@@ -219,8 +215,7 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
     std::move(stream_callback_provider), std::move(credentials_provider));
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::InitializeVideoStream(
+KinesisManagerStatus KinesisStreamManager::InitializeVideoStream(
   unique_ptr<StreamDefinition> stream_definition)
 {
   if (!video_producer_) {
@@ -260,8 +255,7 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
   }
 };
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::PutFrame(std::string stream_name, Frame & frame) const
+KinesisManagerStatus KinesisStreamManager::PutFrame(std::string stream_name, Frame & frame) const
 {
   if (!video_producer_) {
     return KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED;
@@ -277,9 +271,9 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
   return result ? KINESIS_MANAGER_STATUS_SUCCESS : KINESIS_MANAGER_STATUS_PUTFRAME_FAILED;
 };
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::PutMetadata(
-  std::string stream_name, const std::string & name, const std::string & value) const
+KinesisManagerStatus KinesisStreamManager::PutMetadata(std::string stream_name,
+                                                       const std::string & name,
+                                                       const std::string & value) const
 {
   if (!video_producer_) {
     return KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED;
@@ -295,8 +289,7 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
   return result ? KINESIS_MANAGER_STATUS_SUCCESS : KINESIS_MANAGER_STATUS_PUTMETADATA_FAILED;
 };
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-void KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::FreeStream(std::string stream_name)
+void KinesisStreamManager::FreeStream(std::string stream_name)
 {
   if (video_producer_ && video_streams_.count(stream_name) > 0) {
     if (video_streams_.at(stream_name)->isReady()) {
@@ -307,8 +300,7 @@ void KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::FreeStream(std
   }
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::ProcessCodecPrivateDataForStream(
+KinesisManagerStatus KinesisStreamManager::ProcessCodecPrivateDataForStream(
   const std::string & stream_name, std::vector<uint8_t> codec_private_data)
 {
   if (0 < video_streams_codec_data_.count(stream_name) &&
@@ -347,14 +339,12 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
       GetStreamParameterPath(stream_idx, kStreamParameters.topic_name), topic_name);
     AWS_LOGSTREAM_ERROR(__func__, "KinesisVideoStreamSetup failed, uninstalling subscriptions to "
                                     << topic_name << " Error code: " << status);
-    this->subscription_installer_->Uninstall(topic_name);
+    subscription_installer_->Uninstall(topic_name);
   }
   return status;
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::UpdateShardIterator(
-  const std::string & stream_name)
+KinesisManagerStatus KinesisStreamManager::UpdateShardIterator(const std::string & stream_name)
 {
   if (!rekognition_config_.at(stream_name).shard_iterator.empty()) {
     /* Already loaded */
@@ -395,8 +385,7 @@ KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>
   return KINESIS_MANAGER_STATUS_SUCCESS;
 }
 
-template<class KinesisVideoProducerI, class VideoStreamsI>
-KinesisManagerStatus KinesisStreamManagerT<KinesisVideoProducerI, VideoStreamsI>::FetchRekognitionResults(
+KinesisManagerStatus KinesisStreamManager::FetchRekognitionResults(
   const std::string & stream_name, Aws::Vector<Model::Record> * records)
 {
   KinesisManagerStatus status = KINESIS_MANAGER_STATUS_SUCCESS;
