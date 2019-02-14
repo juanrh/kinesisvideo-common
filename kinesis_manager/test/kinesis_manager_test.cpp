@@ -453,13 +453,13 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
 
   EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
-  ON_CALL(*video_stream_mock, IsReady())
-    .WillByDefault(Return(true));
 
   auto status = stream_manager.InitializeVideoProducer(string("us-west-2"), 
     ConstVideoProducerFactory(std::move(video_producer)));
   EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
 
+  ON_CALL(*video_stream_mock, IsReady())
+    .WillByDefault(Return(true));
   {
     InSequence video_stream_mock_seq;
 
@@ -472,37 +472,41 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
 
   auto stream_definition = DefaultProducerSetup(stream_manager, std::string("us-west-2"), test_prefix, 
     ConstVideoProducerFactory(std::move(video_producer)));
-  auto status1 = stream_manager.InitializeVideoStream(std::move(stream_definition));
-  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status1);
+  status = stream_manager.InitializeVideoStream(std::move(stream_definition));
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
 
-  auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
-  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status2));
-  auto status3 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
-  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status3));
+  status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+  status = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
-// {
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
-//   std::string stream_name = "stream_name1";
+TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
+{
+  // FIXME these variables to fixture for all relevant tests
+  KinesisStreamManager stream_manager;
+  std::string test_prefix = "kinesis_video";
+  std::shared_ptr<ParameterReaderInterface> parameter_reader = std::make_shared<TestParameterReader>(test_prefix);
+  std::string stream_name;
+  parameter_reader->ReadParam(GetKinesisVideoParameter(kStreamParameters.stream_name), stream_name);
+  auto video_producer = std::make_unique<KinesisVideoProducerMock>();
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-//   stream_manager.InitializeVideoProducer(string("us-west-2"));
-//   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
-//   EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
-//     .WillRepeatedly(Return(1));
-//   EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
-//     .WillRepeatedly(Return(video_stream_mock));
-//   ON_CALL(*video_stream_mock, isReady())
-//     .WillByDefault(Return(true)); 
-//   EXPECT_CALL(*video_stream_mock, stop())
-//     .Times(1);
-//   EXPECT_CALL(*stream_manager.get_video_producer(), 
-//     freeStream(A<std::shared_ptr<KinesisVideoStreamMock>>())).Times(1);
-//   EXPECT_CALL(stream_manager.get_video_streams(), erase(StrEq(stream_name)))
-//     .Times(1);
+  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+    .WillOnce(Return(video_stream_mock));
+  EXPECT_CALL(*video_producer.get(), freeStream(_)).Times(1);
 
-//   stream_manager.FreeStream(stream_name);
-// }
+  auto stream_definition = DefaultProducerSetup(stream_manager, std::string("us-west-2"), test_prefix, 
+    ConstVideoProducerFactory(std::move(video_producer)));
+  auto status = stream_manager.InitializeVideoStream(std::move(stream_definition));
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
+
+  ON_CALL(*video_stream_mock, IsReady())
+    .WillByDefault(Return(true)); 
+  EXPECT_CALL(*video_stream_mock, Stop()).Times(1);
+
+  stream_manager.FreeStream(stream_name);
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamKinesisVideoStreamSetupFailure)
 // {
