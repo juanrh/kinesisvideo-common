@@ -763,7 +763,7 @@ TEST_F(KinesisStreamManagerMockingFixture, mockPutFrameTest)
 
   status = stream_manager.InitializeVideoStream(move(stream_definition));
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
-  
+
   {
     InSequence video_stream_mock_seq;
 
@@ -797,266 +797,266 @@ TEST_F(KinesisStreamManagerMockingFixture, mockPutFrameTest)
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
 }
 
-// /**
-//  * Tests that GetCodecPrivateData successfully reads and decodes the given base64-encoded buffer.
-//  */
-// TEST(StreamDefinitionProviderSuite, getCodecPrivateDataTest)
-// {
-//   string test_prefix = "some/test/prefix";
-//   vector<string> test_prefix_list{"some", "test", "prefix"};
-//   Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
+/**
+ * Tests that GetCodecPrivateData successfully reads and decodes the given base64-encoded buffer.
+ */
+TEST(StreamDefinitionProviderSuite, getCodecPrivateDataTest)
+{
+  string test_prefix = "some/test/prefix";
+  vector<string> test_prefix_list{"some", "test", "prefix"};
+  Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
 
-//   string decoded_string = "hello world";
-//   string encoded_string = "aGVsbG8gd29ybGQ=";
-//   map<string, int> int_map = {};
-//   map<string, bool> bool_map = {};
-//   map<string, string> tags;
-//   map<string, map<string, string>> map_map = {};
-//   map<string, string> string_map = {
-//     {test_prefix + PARAM_NS_SEPARATOR "codecPrivateData", encoded_string},
-//   };
-//   TestParameterReader parameter_reader(int_map, bool_map, string_map, map_map);
+  string decoded_string = "hello world";
+  string encoded_string = "aGVsbG8gd29ybGQ=";
+  map<string, int> int_map = {};
+  map<string, bool> bool_map = {};
+  map<string, string> tags;
+  map<string, map<string, string>> map_map = {};
+  map<string, string> string_map = {
+    {test_prefix + PARAM_NS_SEPARATOR "codecPrivateData", encoded_string},
+  };
+  TestParameterReader parameter_reader(int_map, bool_map, string_map, map_map);
 
-//   PBYTE codec_private_data;
-//   uint32_t codec_private_data_size;
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(stream_definition_provider.GetCodecPrivateData(
-//               ParameterPath(test_prefix_list), parameter_reader, &codec_private_data,
-//               &codec_private_data_size)));
-//   ASSERT_EQ(decoded_string.length(), codec_private_data_size);
-//   ASSERT_TRUE(0 == strncmp(decoded_string.c_str(), (const char *)codec_private_data,
-//                            codec_private_data_size));
+  PBYTE codec_private_data;
+  uint32_t codec_private_data_size;
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(stream_definition_provider.GetCodecPrivateData(
+              ParameterPath(test_prefix_list), parameter_reader, &codec_private_data,
+              &codec_private_data_size)));
+  ASSERT_EQ(decoded_string.length(), codec_private_data_size);
+  ASSERT_TRUE(0 == strncmp(decoded_string.c_str(), (const char *)codec_private_data,
+                           codec_private_data_size));
 
-//   /* Invalid input tests */
-//   KinesisManagerStatus status = stream_definition_provider.GetCodecPrivateData(
-//               ParameterPath(test_prefix_list), parameter_reader, nullptr, &codec_private_data_size);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
-//   status = stream_definition_provider.GetCodecPrivateData(
-//     ParameterPath(test_prefix_list), parameter_reader, &codec_private_data, nullptr);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+  /* Invalid input tests */
+  KinesisManagerStatus status = stream_definition_provider.GetCodecPrivateData(
+              ParameterPath(test_prefix_list), parameter_reader, nullptr, &codec_private_data_size);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+  status = stream_definition_provider.GetCodecPrivateData(
+    ParameterPath(test_prefix_list), parameter_reader, &codec_private_data, nullptr);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
 
-//   /* Empty input */
-//   string_map = {};
-//   TestParameterReader empty_parameter_reader(int_map, bool_map, string_map, map_map);
-//   codec_private_data = nullptr;
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(stream_definition_provider.GetCodecPrivateData(
-//               ParameterPath(test_prefix_list), empty_parameter_reader, &codec_private_data,
-//               &codec_private_data_size)) && !codec_private_data);
+  /* Empty input */
+  string_map = {};
+  TestParameterReader empty_parameter_reader(int_map, bool_map, string_map, map_map);
+  codec_private_data = nullptr;
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(stream_definition_provider.GetCodecPrivateData(
+              ParameterPath(test_prefix_list), empty_parameter_reader, &codec_private_data,
+              &codec_private_data_size)) && !codec_private_data);
 
-//   /* Dependency failure */
-//   string_map = {
-//     {test_prefix + PARAM_NS_SEPARATOR "codecPrivateData", "1"},
-//   };
-//   TestParameterReader parameter_reader_with_invalid_values(int_map, bool_map, string_map, map_map);
-//   status = stream_definition_provider.GetCodecPrivateData(ParameterPath(test_prefix_list),
-//             parameter_reader_with_invalid_values, &codec_private_data, &codec_private_data_size);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_BASE64DECODE_FAILED == status);
-// }
+  /* Dependency failure */
+  string_map = {
+    {test_prefix + PARAM_NS_SEPARATOR "codecPrivateData", "1"},
+  };
+  TestParameterReader parameter_reader_with_invalid_values(int_map, bool_map, string_map, map_map);
+  status = stream_definition_provider.GetCodecPrivateData(ParameterPath(test_prefix_list),
+            parameter_reader_with_invalid_values, &codec_private_data, &codec_private_data_size);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_BASE64DECODE_FAILED == status);
+}
 
-// /**
-//  * Tests that GetStreamDefinition returns the expected StreamDefinition object by comparing it to a
-//  * manually created StreamDefinition.
-//  */
-// TEST(StreamDefinitionProviderSuite, getStreamDefinitionTest)
-// {
-//   string test_prefix = "some/test/prefix";
-//   vector<string> test_prefix_list{"some", "test", "prefix"};
-//   Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
+/**
+ * Tests that GetStreamDefinition returns the expected StreamDefinition object by comparing it to a
+ * manually created StreamDefinition.
+ */
+TEST(StreamDefinitionProviderSuite, getStreamDefinitionTest)
+{
+  string test_prefix = "some/test/prefix";
+  vector<string> test_prefix_list{"some", "test", "prefix"};
+  Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
 
-//   TestParameterReader parameter_reader = TestParameterReader(test_prefix);
-//   map<string, string> string_map = parameter_reader.string_map_;
-//   map<string, bool> bool_map = parameter_reader.bool_map_;
-//   map<string, int> int_map = parameter_reader.int_map_;
-//   map<string, map<string, string>> map_map = parameter_reader.map_map_;
+  TestParameterReader parameter_reader = TestParameterReader(test_prefix);
+  map<string, string> string_map = parameter_reader.string_map_;
+  map<string, bool> bool_map = parameter_reader.bool_map_;
+  map<string, int> int_map = parameter_reader.int_map_;
+  map<string, map<string, string>> map_map = parameter_reader.map_map_;
 
-//   unique_ptr<StreamDefinition> generated_stream_definition =
-//     stream_definition_provider.GetStreamDefinition(ParameterPath(test_prefix_list),
-//                                                    parameter_reader, nullptr, 0);
-//   auto equivalent_stream_definition = make_unique<StreamDefinition>(
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "stream_name"],
-//     hours(int_map[test_prefix + PARAM_NS_SEPARATOR "retention_period"]),
-//     &map_map[test_prefix + PARAM_NS_SEPARATOR "tags"],
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "kms_key_id"],
-//     static_cast<STREAMING_TYPE>(int_map[test_prefix + PARAM_NS_SEPARATOR "streaming_type"]),
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "content_type"],
-//     milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "max_latency"]),
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "fragment_duration"]),
-//     milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "timecode_scale"]),
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "key_frame_fragmentation"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "frame_timecodes"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "absolute_fragment_time"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "fragment_acks"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "restart_on_error"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "recalculate_metrics"],
-//     static_cast<NAL_ADAPTATION_FLAGS>(int_map[test_prefix + PARAM_NS_SEPARATOR "nal_adaptation_flags"]),
-//     int_map[test_prefix + PARAM_NS_SEPARATOR "frame_rate"],
-//     int_map[test_prefix + PARAM_NS_SEPARATOR "avg_bandwidth_bps"],
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "buffer_duration"]),
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "replay_duration"]),
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "connection_staleness"]),
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "codec_id"],
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "track_name"], nullptr, 0);
-//   ASSERT_TRUE(
-//     are_streams_equivalent(move(equivalent_stream_definition), move(generated_stream_definition)));
+  unique_ptr<StreamDefinition> generated_stream_definition =
+    stream_definition_provider.GetStreamDefinition(ParameterPath(test_prefix_list),
+                                                   parameter_reader, nullptr, 0);
+  auto equivalent_stream_definition = make_unique<StreamDefinition>(
+    string_map[test_prefix + PARAM_NS_SEPARATOR "stream_name"],
+    hours(int_map[test_prefix + PARAM_NS_SEPARATOR "retention_period"]),
+    &map_map[test_prefix + PARAM_NS_SEPARATOR "tags"],
+    string_map[test_prefix + PARAM_NS_SEPARATOR "kms_key_id"],
+    static_cast<STREAMING_TYPE>(int_map[test_prefix + PARAM_NS_SEPARATOR "streaming_type"]),
+    string_map[test_prefix + PARAM_NS_SEPARATOR "content_type"],
+    milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "max_latency"]),
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "fragment_duration"]),
+    milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "timecode_scale"]),
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "key_frame_fragmentation"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "frame_timecodes"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "absolute_fragment_time"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "fragment_acks"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "restart_on_error"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "recalculate_metrics"],
+    static_cast<NAL_ADAPTATION_FLAGS>(int_map[test_prefix + PARAM_NS_SEPARATOR "nal_adaptation_flags"]),
+    int_map[test_prefix + PARAM_NS_SEPARATOR "frame_rate"],
+    int_map[test_prefix + PARAM_NS_SEPARATOR "avg_bandwidth_bps"],
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "buffer_duration"]),
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "replay_duration"]),
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "connection_staleness"]),
+    string_map[test_prefix + PARAM_NS_SEPARATOR "codec_id"],
+    string_map[test_prefix + PARAM_NS_SEPARATOR "track_name"], nullptr, 0);
+  ASSERT_TRUE(
+    are_streams_equivalent(move(equivalent_stream_definition), move(generated_stream_definition)));
 
-//   auto different_stream_definition = make_unique<StreamDefinition>(
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "stream_name"],
-//     hours(int_map[test_prefix + PARAM_NS_SEPARATOR "retention_period"]),
-//     &map_map[test_prefix + PARAM_NS_SEPARATOR "tags"],
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "kms_key_id"],
-//     static_cast<STREAMING_TYPE>(int_map[test_prefix + PARAM_NS_SEPARATOR "streaming_type"]),
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "content_type"],
-//     milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "max_latency"]),
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "fragment_duration"]),
-//     milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "timecode_scale"]),
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "key_frame_fragmentation"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "frame_timecodes"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "absolute_fragment_time"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "fragment_acks"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "restart_on_error"],
-//     bool_map[test_prefix + PARAM_NS_SEPARATOR "recalculate_metrics"],
-//     static_cast<NAL_ADAPTATION_FLAGS>(int_map[test_prefix + PARAM_NS_SEPARATOR "nal_adaptation_flags"]), 4914918,
-//     int_map[test_prefix + PARAM_NS_SEPARATOR "avg_bandwidth_bps"],
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "buffer_duration"]),
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "replay_duration"]),
-//     seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "connection_staleness"]),
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "codec_id"],
-//     string_map[test_prefix + PARAM_NS_SEPARATOR "track_name"], nullptr, 0);
-//   generated_stream_definition = stream_definition_provider.GetStreamDefinition(
-//     ParameterPath(test_prefix_list), parameter_reader, nullptr, 0);
-//   ASSERT_FALSE(
-//     are_streams_equivalent(move(different_stream_definition), move(generated_stream_definition)));
+  auto different_stream_definition = make_unique<StreamDefinition>(
+    string_map[test_prefix + PARAM_NS_SEPARATOR "stream_name"],
+    hours(int_map[test_prefix + PARAM_NS_SEPARATOR "retention_period"]),
+    &map_map[test_prefix + PARAM_NS_SEPARATOR "tags"],
+    string_map[test_prefix + PARAM_NS_SEPARATOR "kms_key_id"],
+    static_cast<STREAMING_TYPE>(int_map[test_prefix + PARAM_NS_SEPARATOR "streaming_type"]),
+    string_map[test_prefix + PARAM_NS_SEPARATOR "content_type"],
+    milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "max_latency"]),
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "fragment_duration"]),
+    milliseconds(int_map[test_prefix + PARAM_NS_SEPARATOR "timecode_scale"]),
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "key_frame_fragmentation"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "frame_timecodes"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "absolute_fragment_time"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "fragment_acks"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "restart_on_error"],
+    bool_map[test_prefix + PARAM_NS_SEPARATOR "recalculate_metrics"],
+    static_cast<NAL_ADAPTATION_FLAGS>(int_map[test_prefix + PARAM_NS_SEPARATOR "nal_adaptation_flags"]), 4914918,
+    int_map[test_prefix + PARAM_NS_SEPARATOR "avg_bandwidth_bps"],
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "buffer_duration"]),
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "replay_duration"]),
+    seconds(int_map[test_prefix + PARAM_NS_SEPARATOR "connection_staleness"]),
+    string_map[test_prefix + PARAM_NS_SEPARATOR "codec_id"],
+    string_map[test_prefix + PARAM_NS_SEPARATOR "track_name"], nullptr, 0);
+  generated_stream_definition = stream_definition_provider.GetStreamDefinition(
+    ParameterPath(test_prefix_list), parameter_reader, nullptr, 0);
+  ASSERT_FALSE(
+    are_streams_equivalent(move(different_stream_definition), move(generated_stream_definition)));
 
-//   /* Invalid input tests */
-//   generated_stream_definition = stream_definition_provider.GetStreamDefinition(
-//     ParameterPath(test_prefix_list), parameter_reader, nullptr, 100);
-//   ASSERT_FALSE(generated_stream_definition);
-// }
+  /* Invalid input tests */
+  generated_stream_definition = stream_definition_provider.GetStreamDefinition(
+    ParameterPath(test_prefix_list), parameter_reader, nullptr, 100);
+  ASSERT_FALSE(generated_stream_definition);
+}
 
-// /**
-//  * Initializes the video producer and generates a basic stream definition.
-//  */
-// unique_ptr<StreamDefinition> DefaultProducerSetup(
-//   Aws::Kinesis::KinesisStreamManager & stream_manager, string region, const std::vector<std::string> & test_prefix)
-// {
-// #ifdef PLATFORM_TESTING_ACCESS_KEY
-//   setenv("AWS_ACCESS_KEY_ID", PLATFORM_TESTING_ACCESS_KEY, 1);
-// #endif
-// #ifdef PLATFORM_TESTING_SECRET_KEY
-//   setenv("AWS_SECRET_ACCESS_KEY", PLATFORM_TESTING_SECRET_KEY, 1);
-// #endif
-//   stream_manager.InitializeVideoProducer(region);
+/**
+ * Initializes the video producer and generates a basic stream definition.
+ */
+unique_ptr<StreamDefinition> DefaultProducerSetup(
+  Aws::Kinesis::KinesisStreamManager & stream_manager, string region, const std::vector<std::string> & test_prefix)
+{
+#ifdef PLATFORM_TESTING_ACCESS_KEY
+  setenv("AWS_ACCESS_KEY_ID", PLATFORM_TESTING_ACCESS_KEY, 1);
+#endif
+#ifdef PLATFORM_TESTING_SECRET_KEY
+  setenv("AWS_SECRET_ACCESS_KEY", PLATFORM_TESTING_SECRET_KEY, 1);
+#endif
+  stream_manager.InitializeVideoProducer(region);
 
-//   Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
-//   TestParameterReader parameter_reader = TestParameterReader(test_prefix);
-//   unique_ptr<StreamDefinition> stream_definition = stream_definition_provider.GetStreamDefinition(
-//     ParameterPath(test_prefix), parameter_reader, nullptr, 0);
-//   return move(stream_definition);
-// }
+  Aws::Kinesis::StreamDefinitionProvider stream_definition_provider;
+  TestParameterReader parameter_reader = TestParameterReader(test_prefix);
+  unique_ptr<StreamDefinition> stream_definition = stream_definition_provider.GetStreamDefinition(
+    ParameterPath(test_prefix), parameter_reader, nullptr, 0);
+  return move(stream_definition);
+}
 
-// /**
-//  * Tests the InitializeVideoProducer function.
-//  */
-// TEST(KinesisStreamManagerSuite, videoInitializationTest)
-// {
-//   string test_prefix = "some/test/prefix";
-//   Aws::Kinesis::KinesisStreamManager stream_manager;
+/**
+ * Tests the InitializeVideoProducer function.
+ */
+TEST(KinesisStreamManagerSuite, videoInitializationTest)
+{
+  string test_prefix = "some/test/prefix";
+  Aws::Kinesis::KinesisStreamManager stream_manager;
 
-//   KinesisManagerStatus status = stream_manager.InitializeVideoProducer("us-west-2");
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
-//   ASSERT_TRUE(stream_manager.get_video_producer());
+  KinesisManagerStatus status = stream_manager.InitializeVideoProducer("us-west-2");
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+  ASSERT_TRUE(stream_manager.get_video_producer());
 
-//   /* Duplicate initialization */
-//   KinesisVideoProducer * video_producer = stream_manager.get_video_producer();
-//   status = stream_manager.InitializeVideoProducer("us-west-2");
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_ALREADY_INITIALIZED == status);
-//   KinesisVideoProducer * video_producer_post_call = stream_manager.get_video_producer();
-//   ASSERT_EQ(video_producer, video_producer_post_call);
-// }
+  /* Duplicate initialization */
+  auto video_producer = stream_manager.get_video_producer();
+  status = stream_manager.InitializeVideoProducer("us-west-2");
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_ALREADY_INITIALIZED == status);
+  auto video_producer_post_call = stream_manager.get_video_producer();
+  ASSERT_EQ(video_producer, video_producer_post_call);
+}
 
-// #ifdef BUILD_AWS_TESTING
-// // the following tests perform AWS API calls and require user confiugration
-// // to enable them run: colcon build --cmake-args -DBUILD_AWS_TESTING=1
+#ifdef BUILD_AWS_TESTING
+// the following tests perform AWS API calls and require user confiugration
+// to enable them run: colcon build --cmake-args -DBUILD_AWS_TESTING=1
 
-// /**
-//  * Tests the InitializeVideoStream function. This will attempt to create and load a test stream in
-//  * the test account.
-//  */
-// TEST(KinesisStreamManagerSuite, streamInitializationTest)
-// {
-//   Aws::Kinesis::KinesisStreamManager stream_manager;
-//   /* Before calling InitializeVideoProducer */
-//   KinesisManagerStatus status =
-//     stream_manager.InitializeVideoStream(move(unique_ptr<StreamDefinition>()));
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
+/**
+ * Tests the InitializeVideoStream function. This will attempt to create and load a test stream in
+ * the test account.
+ */
+TEST(KinesisStreamManagerSuite, streamInitializationTest)
+{
+  Aws::Kinesis::KinesisStreamManager stream_manager;
+  /* Before calling InitializeVideoProducer */
+  KinesisManagerStatus status =
+    stream_manager.InitializeVideoStream(move(unique_ptr<StreamDefinition>()));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
 
-//   ASSERT_FALSE(stream_manager.get_video_producer());
-//   unique_ptr<StreamDefinition> stream_definition =
-//     DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"));
-//   ASSERT_TRUE(stream_manager.get_video_producer());
+  ASSERT_FALSE(stream_manager.get_video_producer());
+  unique_ptr<StreamDefinition> stream_definition =
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("stream/test"));
+  ASSERT_TRUE(stream_manager.get_video_producer());
 
-//   /* Video producer has been created but the stream definition is empty. */
-//   status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
+  /* Video producer has been created but the stream definition is empty. */
+  status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_INVALID_INPUT == status);
 
-//   status = stream_manager.InitializeVideoStream(move(stream_definition));
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
-// }
+  status = stream_manager.InitializeVideoStream(move(stream_definition));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+}
 
-// /**
-//  * Tests the PutFrame function. This will load the test stream and attempt to transmit a dummy frame
-//  * to it.
-//  */
-// TEST(KinesisStreamManagerSuite, putFrameTest)
-// {
-//   Aws::Kinesis::KinesisStreamManager stream_manager;
-//   Frame frame;
-//   string stream_name("testStream");
-//   /* Before calling InitializeVideoProducer */
-//   KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
+/**
+ * Tests the PutFrame function. This will load the test stream and attempt to transmit a dummy frame
+ * to it.
+ */
+TEST(KinesisStreamManagerSuite, putFrameTest)
+{
+  Aws::Kinesis::KinesisStreamManager stream_manager;
+  Frame frame;
+  string stream_name("testStream");
+  /* Before calling InitializeVideoProducer */
+  KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
 
-//   /* Stream name not found (i.e. before calling InitializeVideoStream) */
-//   unique_ptr<StreamDefinition> stream_definition =
-//     DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"));
-//   status = stream_manager.PutFrame(string(stream_name), frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND == status);
+  /* Stream name not found (i.e. before calling InitializeVideoStream) */
+  unique_ptr<StreamDefinition> stream_definition =
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"));
+  status = stream_manager.PutFrame(string(stream_name), frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND == status);
 
-//   status = stream_manager.InitializeVideoStream(move(stream_definition));
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+  status = stream_manager.InitializeVideoStream(move(stream_definition));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
 
-//   /* Invalid frame */
-//   frame.size = 0;
-//   status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_PUTFRAME_FAILED == status);
+  /* Invalid frame */
+  frame.size = 0;
+  status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_PUTFRAME_FAILED == status);
 
-//   /* Valid (but dummy) frame */
-//   frame.size = 4;
-//   std::vector<uint8_t> bytes = {0x00, 0x01, 0x02, 0x03};
-//   frame.frameData = reinterpret_cast<PBYTE>((void *)(bytes.data()));
-//   frame.duration = 5000000;
-//   frame.index = 1;
-//   UINT64 timestamp = 0;
-//   timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-//                 std::chrono::system_clock::now().time_since_epoch())
-//                 .count() /
-//               DEFAULT_TIME_UNIT_IN_NANOS;
-//   frame.decodingTs = timestamp;
-//   frame.presentationTs = timestamp;
-//   frame.flags = (FRAME_FLAGS)0;
+  /* Valid (but dummy) frame */
+  frame.size = 4;
+  std::vector<uint8_t> bytes = {0x00, 0x01, 0x02, 0x03};
+  frame.frameData = reinterpret_cast<PBYTE>((void *)(bytes.data()));
+  frame.duration = 5000000;
+  frame.index = 1;
+  UINT64 timestamp = 0;
+  timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch())
+                .count() /
+              DEFAULT_TIME_UNIT_IN_NANOS;
+  frame.decodingTs = timestamp;
+  frame.presentationTs = timestamp;
+  frame.flags = (FRAME_FLAGS)0;
 
-//   status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
-// }
-// #endif
+  status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+}
+#endif
 
 int main(int argc, char ** argv)
 {
