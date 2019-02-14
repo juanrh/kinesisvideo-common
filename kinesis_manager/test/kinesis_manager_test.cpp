@@ -416,13 +416,11 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
 {
   KinesisStreamManager stream_manager;
   std::string test_prefix = "kinesis_video";
-  std::shared_ptr<ParameterReaderInterface> parameter_reader = 
-    std::make_shared<TestParameterReader>(test_prefix);
+  std::shared_ptr<ParameterReaderInterface> parameter_reader = std::make_shared<TestParameterReader>(test_prefix);
   std::string stream_name;
   parameter_reader->ReadParam(GetKinesisVideoParameter(kStreamParameters.stream_name), stream_name);
   std::string metadata_name = "metadata_name";
   std::string metadata_value = "metadata_value";
-  std::string region = "us-west-2";
   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
   
@@ -431,9 +429,9 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
   EXPECT_CALL(*video_stream_mock, IsReady())
     .WillOnce(Return(false));
   
-  auto stream_definition = DefaultProducerSetup(stream_manager, region, test_prefix, 
+  auto stream_definition = DefaultProducerSetup(stream_manager, std::string("us-west-2"), test_prefix, 
     ConstVideoProducerFactory(std::move(video_producer)));
-    
+
   auto status = stream_manager.InitializeVideoStream(std::move(stream_definition));
   EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
 
@@ -441,56 +439,47 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
   ASSERT_EQ(KINESIS_MANAGER_STATUS_PUTMETADATA_FAILED, status);
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
-// {
-//   KinesisStreamManager stream_manager;
-//   std::string stream_name = "stream_name1";
-//   std::string metadata_name = "metadata_name";
-//   std::string metadata_value = "metadata_value";
-//   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
-//   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
+{
+  KinesisStreamManager stream_manager;
+  std::string test_prefix = "kinesis_video";
+  std::shared_ptr<ParameterReaderInterface> parameter_reader = std::make_shared<TestParameterReader>(test_prefix);
+  std::string stream_name;
+  parameter_reader->ReadParam(GetKinesisVideoParameter(kStreamParameters.stream_name), stream_name);
+  std::string metadata_name = "metadata_name";
+  std::string metadata_value = "metadata_value";
+  auto video_producer = std::make_unique<KinesisVideoProducerMock>();
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-//   EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
-//     .WillOnce(Return(video_stream_mock));
-//   // EXPECT_CALL(*video_stream_mock, IsReady())
-//   //   .WillOnce(Return(false));
-//   ON_CALL(*video_stream_mock, IsReady())
-//     .WillByDefault(Return(true));
+  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+    .WillOnce(Return(video_stream_mock));
+  ON_CALL(*video_stream_mock, IsReady())
+    .WillByDefault(Return(true));
 
+  auto status = stream_manager.InitializeVideoProducer(string("us-west-2"), 
+    ConstVideoProducerFactory(std::move(video_producer)));
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status);
 
-//   auto status1 = stream_manager.InitializeVideoProducer(string("us-west-2"), 
-//     ConstVideoProducerFactory(std::move(video_producer)));
-//   EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status1);
-//   // auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+  {
+    InSequence video_stream_mock_seq;
 
-//   // EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
-//   //   .WillRepeatedly(Return(1));
-//   // EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
-//   //   .WillRepeatedly(Return(video_stream_mock));
-//   // ON_CALL(*video_stream_mock, isReady())
-//   //   .WillByDefault(Return(true));
+    EXPECT_CALL(*video_stream_mock, PutFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+      .WillOnce(Return(false));
 
-//   {
-//     InSequence video_stream_mock_seq;
-  
-//     // EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
-//     //   .WillOnce(Return(false));
+    EXPECT_CALL(*video_stream_mock, PutFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
+      .WillOnce(Return(true));
+  }
 
-//     // EXPECT_CALL(*video_stream_mock, putFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
-//     //   .WillOnce(Return(true));
+  auto stream_definition = DefaultProducerSetup(stream_manager, std::string("us-west-2"), test_prefix, 
+    ConstVideoProducerFactory(std::move(video_producer)));
+  auto status1 = stream_manager.InitializeVideoStream(std::move(stream_definition));
+  EXPECT_EQ(KINESIS_MANAGER_STATUS_SUCCESS, status1);
 
-//     EXPECT_CALL(*video_stream_mock, PutFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
-//       .WillOnce(Return(false));
-
-//     EXPECT_CALL(*video_stream_mock, PutFragmentMetadata(StrEq(metadata_name), StrEq(metadata_value), _))
-//       .WillOnce(Return(true));
-//   }
-
-//   auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status2));
-//   auto status3 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status3));
-// }
+  auto status2 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status2));
+  auto status3 = stream_manager.PutMetadata(stream_name, metadata_name, metadata_value);  
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status3));
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
 // {
