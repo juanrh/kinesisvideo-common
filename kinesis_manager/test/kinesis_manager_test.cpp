@@ -483,7 +483,6 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
 
 TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
 {
-  // FIXME these variables to fixture for all relevant tests
   KinesisStreamManager stream_manager;
   std::string test_prefix = "kinesis_video";
   std::shared_ptr<ParameterReaderInterface> parameter_reader = std::make_shared<TestParameterReader>(test_prefix);
@@ -508,43 +507,43 @@ TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
   stream_manager.FreeStream(stream_name);
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamKinesisVideoStreamSetupFailure)
-// {
-//   std::string stream_name = "stream_name1";
-//   std::string topic_name = "topic1";
-//   std::vector<uint8_t> codec_private_data = {1,2,3};
-//   int stream_idx = 0;
-//   int stream_count_param = 1;
-//   map<string, int> int_map = {
-//     {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 
-//       stream_count_param}
-//   };
-//   map<string, bool> bool_map;
-//   map<string, string> string_map = {
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.stream_name)), 
-//       stream_name},
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_name)), 
-//       topic_name}
-//   };
-//   map<string, map<string, string>> map_map;
-//   TestParameterReader parameter_reader(int_map, bool_map, string_map, map_map);
+TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamKinesisVideoStreamSetupFailure)
+{
+  std::string stream_name = "stream_name1";
+  std::string topic_name = "topic1";
+  std::vector<uint8_t> codec_private_data = {1,2,3};
+  int stream_idx = 0;
+  int stream_count_param = 1;
+  map<string, int> int_map = {
+    {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 
+      stream_count_param}
+  };
+  map<string, bool> bool_map;
+  map<string, string> string_map = {
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.stream_name)), 
+      stream_name},
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_name)), 
+      topic_name}
+  };
+  map<string, map<string, string>> map_map;
+  TestParameterReader parameter_reader(int_map, bool_map, string_map, map_map);
 
-//   StreamDefinitionProviderFullMock stream_definition_provider;
-//   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager(&parameter_reader,
-//     & stream_definition_provider, & subscription_installer_, std::move(kinesis_client));
+  StreamDefinitionProviderFullMock stream_definition_provider;
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(&parameter_reader,
+    & stream_definition_provider, & subscription_installer_, std::move(kinesis_client));
 
-//   // force failure on KinesisVideoStreamSetup, and thus recovery path 
-//   EXPECT_CALL(stream_definition_provider, GetStreamDefinitionProxy(_,_,_,_))
-//     .WillOnce(Return(nullptr)); 
+  // force failure on KinesisVideoStreamSetup, and thus recovery path 
+  EXPECT_CALL(stream_definition_provider, GetStreamDefinitionProxy(_,_,_,_))
+    .WillOnce(Return(nullptr)); 
 
-//   EXPECT_CALL(subscription_installer_, Uninstall(StrEq(topic_name)))
-//     .Times(1);
+  EXPECT_CALL(subscription_installer_, Uninstall(StrEq(topic_name)))
+    .Times(1);
 
-//   auto status = stream_manager.ProcessCodecPrivateDataForStream(stream_name, codec_private_data);
+  auto status = stream_manager.ProcessCodecPrivateDataForStream(stream_name, codec_private_data);
   
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
-// }
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupZeroStreamCount)
 // {
