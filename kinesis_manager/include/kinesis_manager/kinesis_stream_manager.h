@@ -289,9 +289,9 @@ public:
   KinesisManagerStatus FetchRekognitionResults(const std::string & stream_name,
                                                Aws::Vector<Model::Record> * records) override;
 
-  KinesisVideoProducerInterface * get_video_producer() 
-  { 
-    return video_producer_.get(); 
+  KinesisVideoProducerInterface * get_video_producer()
+  {
+    return video_producer_.get();
   }
 
 protected:
