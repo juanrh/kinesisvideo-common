@@ -164,6 +164,18 @@ KinesisManagerStatus KinesisStreamManagerInterface::KinesisVideoStreamerSetup()
   return status;
 }
 
+unique_ptr<KinesisVideoProducerInterface> KinesisStreamManagerInterface::CreateDefaultVideoProducer(
+  std::string region,
+  unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
+  unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
+  unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
+  unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider)
+{
+  return std::make_unique<KinesisVideoProducerImpl>(KinesisVideoProducer::createSync(
+    std::move(device_info_provider), std::move(client_callback_provider),
+    std::move(stream_callback_provider), std::move(credential_provider), region));
+}
+
 KinesisManagerStatus KinesisStreamManager::InitializeStreamSubscription(
   const StreamSubscriptionDescriptor & descriptor)
 {
@@ -180,7 +192,8 @@ KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(
   std::string region, unique_ptr<DeviceInfoProvider> device_info_provider,
   unique_ptr<ClientCallbackProvider> client_callback_provider,
   unique_ptr<StreamCallbackProvider> stream_callback_provider,
-  unique_ptr<CredentialProvider> credential_provider)
+  unique_ptr<CredentialProvider> credential_provider,
+  KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory)
 {
   if (video_producer_) {
     return KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_ALREADY_INITIALIZED;
@@ -189,9 +202,8 @@ KinesisManagerStatus KinesisStreamManager::InitializeVideoProducer(
       !stream_callback_provider || !credential_provider) {
     return KINESIS_MANAGER_STATUS_INVALID_INPUT;
   }
-  video_producer_ = KinesisVideoProducer::createSync(
-    std::move(device_info_provider), std::move(client_callback_provider),
-    std::move(stream_callback_provider), std::move(credential_provider), region);
+  video_producer_ = video_producer_factory(region, std::move(device_info_provider), std::move(client_callback_provider),
+            std::move(stream_callback_provider), std::move(credential_provider));
   return KINESIS_MANAGER_STATUS_SUCCESS;
 }
 
@@ -233,7 +245,7 @@ KinesisManagerStatus KinesisStreamManager::InitializeVideoStream(
   }
 
   StreamInfo stream_info = stream_definition->getStreamInfo();
-  shared_ptr<KinesisVideoStream> stream;
+  shared_ptr<KinesisVideoStreamInterface> stream;
   try {
     stream = video_producer_->createStreamSync(std::move(stream_definition));
   } catch (const std::runtime_error & e) {
@@ -263,11 +275,11 @@ KinesisManagerStatus KinesisStreamManager::PutFrame(std::string stream_name, Fra
   if (0 == video_streams_.count(stream_name)) {
     return KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND;
   }
-  if (!video_streams_.at(stream_name)->isReady()) {
+  if (!video_streams_.at(stream_name)->IsReady()) {
     AWS_LOG_WARN(__func__, "Stream not ready yet, skipping putFrame.");
     return KINESIS_MANAGER_STATUS_PUTFRAME_FAILED;
   }
-  bool result = video_streams_.at(stream_name)->putFrame(frame);
+  bool result = video_streams_.at(stream_name)->PutFrame(frame);
   return result ? KINESIS_MANAGER_STATUS_SUCCESS : KINESIS_MANAGER_STATUS_PUTFRAME_FAILED;
 };
 
@@ -281,19 +293,19 @@ KinesisManagerStatus KinesisStreamManager::PutMetadata(std::string stream_name,
   if (0 == video_streams_.count(stream_name)) {
     return KINESIS_MANAGER_STATUS_PUTMETADATA_STREAM_NOT_FOUND;
   }
-  if (!video_streams_.at(stream_name)->isReady()) {
+  if (!video_streams_.at(stream_name)->IsReady()) {
     AWS_LOG_WARN(__func__, "Stream not ready yet, skipping putFragmentMetadata.");
     return KINESIS_MANAGER_STATUS_PUTMETADATA_FAILED;
   }
-  bool result = video_streams_.at(stream_name)->putFragmentMetadata(name, value, false);
+  bool result = video_streams_.at(stream_name)->PutFragmentMetadata(name, value, false);
   return result ? KINESIS_MANAGER_STATUS_SUCCESS : KINESIS_MANAGER_STATUS_PUTMETADATA_FAILED;
 };
 
 void KinesisStreamManager::FreeStream(std::string stream_name)
 {
   if (video_producer_ && video_streams_.count(stream_name) > 0) {
-    if (video_streams_.at(stream_name)->isReady()) {
-      video_streams_.at(stream_name)->stop();
+    if (video_streams_.at(stream_name)->IsReady()) {
+      video_streams_.at(stream_name)->Stop();
     }
     video_producer_->freeStream(video_streams_.at(stream_name));
     video_streams_.erase(stream_name);

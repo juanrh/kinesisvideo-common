@@ -28,7 +28,10 @@ std::shared_ptr<KinesisVideoStreamInterface> KinesisVideoProducerImpl::createStr
 void KinesisVideoProducerImpl::freeStream(
     std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream)
 {
-  video_producer_->freeStream(kinesis_video_stream->GetKinesisVideoStream());
+  auto video_stream = kinesis_video_stream->GetKinesisVideoStream();
+  if (nullptr != video_stream) {
+    video_producer_->freeStream(video_stream);
+  }
 }
 
 }  // namespace Kinesis

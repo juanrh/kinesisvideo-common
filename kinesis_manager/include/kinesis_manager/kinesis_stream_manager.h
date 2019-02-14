@@ -24,7 +24,7 @@
 #include <kinesis_manager/kinesis_client_facade.h>
 #include <kinesis_manager/stream_definition_provider.h>
 #include <kinesis_manager/stream_subscription_installer.h>
-
+#include <kinesis_manager/kinesis_video_producer_interface.h>
 
 namespace Aws {
 namespace Kinesis {
@@ -79,6 +79,15 @@ public:
     subscription_installer_(subscription_installer){};
   KinesisStreamManagerInterface() = default;
   virtual ~KinesisStreamManagerInterface() = default;
+
+  using VideoProducerFactory = std::function<unique_ptr<KinesisVideoProducerInterface>(
+    std::string, 
+    unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider>,
+    unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider>,
+    unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider>,
+    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider>
+  )>;
+
   /**
    * Initializes the video producer with the given callbacks.
    * @note This function must be called if the KinesisStreamManager is to be used for video streams.
@@ -88,13 +97,15 @@ public:
    * @param client_callback_provider
    * @param stream_callback_provider
    * @param credential_provider
+   * @param video_producer_factory
    * @return KinesisManagerStatus
    */
   virtual KinesisManagerStatus InitializeVideoProducer(std::string region,
     unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
     unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
     unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
-    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider) = 0;
+    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider, 
+    VideoProducerFactory video_producer_factory = KinesisStreamManagerInterface::CreateDefaultVideoProducer) = 0;
 
   /**
    * Initializes the video producer using the default callbacks provided as part of the Kinesis
@@ -210,6 +221,13 @@ protected:
   const Aws::Client::ParameterReaderInterface * parameter_reader_ = nullptr;
   const StreamDefinitionProvider * stream_definition_provider_ = nullptr;
   StreamSubscriptionInstaller * subscription_installer_ = nullptr;
+
+  static unique_ptr<KinesisVideoProducerInterface> CreateDefaultVideoProducer(
+    std::string region,
+    unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
+    unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
+    unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
+    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider);
 };
 
 /**
@@ -234,7 +252,8 @@ public:
     unique_ptr<com::amazonaws::kinesis::video::DeviceInfoProvider> device_info_provider,
     unique_ptr<com::amazonaws::kinesis::video::ClientCallbackProvider> client_callback_provider,
     unique_ptr<com::amazonaws::kinesis::video::StreamCallbackProvider> stream_callback_provider,
-    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider) override;
+    unique_ptr<com::amazonaws::kinesis::video::CredentialProvider> credential_provider, 
+    KinesisStreamManagerInterface::VideoProducerFactory video_producer_factory = KinesisStreamManagerInterface::CreateDefaultVideoProducer) override;
   KinesisManagerStatus InitializeVideoProducer(std::string region) override;
 
   KinesisManagerStatus InitializeVideoStream(
@@ -267,7 +286,7 @@ public:
   KinesisManagerStatus FetchRekognitionResults(const std::string & stream_name,
                                                Aws::Vector<Model::Record> * records) override;
 
-  com::amazonaws::kinesis::video::KinesisVideoProducer * get_video_producer() 
+  KinesisVideoProducerInterface * get_video_producer() 
   { 
     return video_producer_.get(); 
   }
@@ -285,9 +304,9 @@ private:
    */
   KinesisManagerStatus UpdateShardIterator(const std::string & stream_name);
 
-  std::map<std::string, shared_ptr<com::amazonaws::kinesis::video::KinesisVideoStream>> video_streams_;
+  std::map<std::string, shared_ptr<KinesisVideoStreamInterface>> video_streams_;
   std::map<std::string, std::vector<uint8_t>> video_streams_codec_data_;
-  unique_ptr<com::amazonaws::kinesis::video::KinesisVideoProducer> video_producer_;
+  unique_ptr<KinesisVideoProducerInterface> video_producer_;
   unique_ptr<KinesisClient> kinesis_client_;
 
   struct RekognitionStreamInfo
