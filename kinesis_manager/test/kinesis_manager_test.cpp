@@ -545,39 +545,39 @@ TEST_F(KinesisStreamManagerMockingFixture, testProcessCodecPrivateDataForStreamK
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupZeroStreamCount)
-// {
-//   map<string, int> int_map = {
-//     {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 0}
-//   };
-//   auto parameter_reader = std::make_shared<TestParameterReader>(int_map, bool_map_, string_map_, map_map_);
-//   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
-//   KinesisStreamManager stream_manager(parameter_reader.get(), & stream_definition_provider_, 
-//     & subscription_installer_, std::move(kinesis_client));
+TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupZeroStreamCount)
+{
+  map<string, int> int_map = {
+    {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 0}
+  };
+  auto parameter_reader = std::make_shared<TestParameterReader>(int_map, bool_map_, string_map_, map_map_);
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(parameter_reader.get(), & stream_definition_provider_, 
+    & subscription_installer_, std::move(kinesis_client));
 
-//   auto status = stream_manager.KinesisVideoStreamerSetup();
+  auto status = stream_manager.KinesisVideoStreamerSetup();
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
-// }
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+}
 
-// TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStreamFailsGetCodecPrivateData)
-// {
-//   map<string, int> int_map = {
-//     {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 1}
-//   };
-//   auto parameter_reader = std::make_shared<TestParameterReader>(int_map, bool_map_, string_map_, map_map_);
-//   StreamDefinitionProviderPartialMock stream_definition_provider;
-//   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
-//   KinesisStreamManager stream_manager(parameter_reader.get(), & stream_definition_provider, 
-//     & subscription_installer_, std::move(kinesis_client));
+TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStreamFailsGetCodecPrivateData)
+{
+  map<string, int> int_map = {
+    {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 1}
+  };
+  auto parameter_reader = std::make_shared<TestParameterReader>(int_map, bool_map_, string_map_, map_map_);
+  StreamDefinitionProviderPartialMock stream_definition_provider;
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::unique_ptr<NiceMock<KinesisClientMock>>{};
+  KinesisStreamManager stream_manager(parameter_reader.get(), & stream_definition_provider, 
+    & subscription_installer_, std::move(kinesis_client));
 
-//   EXPECT_CALL(stream_definition_provider, GetCodecPrivateData(_,_,_,_))
-//     .WillOnce(Return(KINESIS_MANAGER_STATUS_ERROR_BASE));
+  EXPECT_CALL(stream_definition_provider, GetCodecPrivateData(_,_,_,_))
+    .WillOnce(Return(KINESIS_MANAGER_STATUS_ERROR_BASE));
 
-//   auto status = stream_manager.KinesisVideoStreamerSetup();
+  auto status = stream_manager.KinesisVideoStreamerSetup();
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
-// }
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRekognitionResultsSingleStreamSuccessful)
 // {
