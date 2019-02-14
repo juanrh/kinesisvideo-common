@@ -729,6 +729,7 @@ TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVi
 
   /* Video producer has been created but the stream definition is empty. */
   KinesisManagerStatus status = stream_manager.InitializeVideoStream(unique_ptr<StreamDefinition>{});
+  EXPECT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status)); 
   ASSERT_EQ(KINESIS_MANAGER_STATUS_INVALID_INPUT, status);
   
   std::string stream_name = "stream_name1";
@@ -736,67 +737,65 @@ TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVi
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, mockPutFrameTest)
-// {
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsMock> stream_manager;
-//   Frame frame;
-//   string stream_name("testStream");
+TEST_F(KinesisStreamManagerMockingFixture, mockPutFrameTest)
+{
+  KinesisStreamManager stream_manager;
+  auto video_producer = std::make_unique<KinesisVideoProducerMock>();
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
+  Frame frame;
+  string stream_name("testStream");
 
-//   /* Before calling InitializeVideoProducer */
-//   KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED == status);
+  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+    .WillOnce(Return(video_stream_mock));
 
-//   /* Stream name not found (i.e. before calling InitializeVideoStream) */
-//   unique_ptr<StreamDefinition> stream_definition =
-//     DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"));
-//   status = stream_manager.PutFrame(string(stream_name), frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND == status);
+  /* Before calling InitializeVideoProducer */
+  KinesisManagerStatus status = stream_manager.PutFrame(stream_name, frame);
+  EXPECT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+  ASSERT_EQ(KINESIS_MANAGER_STATUS_VIDEO_PRODUCER_NOT_INITIALIZED ,status);
 
-//   auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
-//   EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
-//     .WillOnce(Return(kinesis_video_stream));
-//   status = stream_manager.InitializeVideoStream(move(stream_definition));
-//   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
-//   EXPECT_CALL(stream_manager.get_video_streams(), count(StrEq(stream_name)))
-//     .WillRepeatedly(Return(1));
-//   EXPECT_CALL(stream_manager.get_video_streams(), at(StrEq(stream_name)))
-//     .WillRepeatedly(Return(video_stream_mock));
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
- 
-//   {
-//     InSequence video_stream_mock_seq;
+  /* Stream name not found (i.e. before calling InitializeVideoStream) */
+  auto stream_definition =
+    DefaultProducerSetup(stream_manager, string("us-west-2"), string("frame/test"), 
+      ConstVideoProducerFactory(std::move(video_producer)));
+  status = stream_manager.PutFrame(string(stream_name), frame);
+  EXPECT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+  ASSERT_EQ(KINESIS_MANAGER_STATUS_PUTFRAME_STREAM_NOT_FOUND, status);
 
-//     EXPECT_CALL(*video_stream_mock, isReady())
-//       .WillOnce(Return(false));
+  status = stream_manager.InitializeVideoStream(move(stream_definition));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+  
+  {
+    InSequence video_stream_mock_seq;
 
-//     EXPECT_CALL(*video_stream_mock, isReady())
-//       .WillOnce(Return(true));
+    EXPECT_CALL(*video_stream_mock, IsReady())
+      .WillOnce(Return(false));
 
-//     EXPECT_CALL(*video_stream_mock, putFrame(_))
-//       .WillOnce(Return(false));
+    EXPECT_CALL(*video_stream_mock, IsReady())
+      .WillOnce(Return(true));
 
-//     EXPECT_CALL(*video_stream_mock, isReady())
-//       .WillOnce(Return(true));
+    EXPECT_CALL(*video_stream_mock, PutFrame(_))
+      .WillOnce(Return(false));
 
-//     EXPECT_CALL(*video_stream_mock, putFrame(_))
-//       .WillOnce(Return(true));  
-//   }
+    EXPECT_CALL(*video_stream_mock, IsReady())
+      .WillOnce(Return(true));
 
-//   // not ready 
-//   status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
-//               KINESIS_MANAGER_STATUS_PUTFRAME_FAILED == status);
+    EXPECT_CALL(*video_stream_mock, PutFrame(_))
+      .WillOnce(Return(true));  
+  }
 
-//   // ready but putFrame fails 
-//   status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+  // not ready 
+  status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status) &&
+              KINESIS_MANAGER_STATUS_PUTFRAME_FAILED == status);
 
-//   // ready and putFrame ok
-//   status = stream_manager.PutFrame(stream_name, frame);
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
-// }
+  // ready but putFrame fails 
+  status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
+
+  // ready and putFrame ok
+  status = stream_manager.PutFrame(stream_name, frame);
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(status));
+}
 
 // /**
 //  * Tests that GetCodecPrivateData successfully reads and decodes the given base64-encoded buffer.
