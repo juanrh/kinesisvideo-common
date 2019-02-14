@@ -579,110 +579,112 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupSingleStre
   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(status));
 }
 
-// TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRekognitionResultsSingleStreamSuccessful)
-// {
-//   int stream_idx = 0;
-//   std::string stream_name = "stream_name1";
-//   map<string, int> int_map = {
-//     {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 1},
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_type)), 42}
-//   };
-//   map<string, string> string_map = {
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_name)),
-//       "foo"},
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.stream_name)), 
-//       stream_name},
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.rekognition_data_stream)), 
-//       "rekognition_data_stream"},
-//     {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.rekognition_topic_name)),
-//       "rekognition_topic_name"},
-//   };
+TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRekognitionResultsSingleStreamSuccessful)
+{
+  int stream_idx = 0;
+  std::string stream_name = "stream_name1";
+  map<string, int> int_map = {
+    {TestParameterReader::DoFormatParameterPath(GetKinesisVideoParameter(kStreamParameters.stream_count)), 1},
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_type)), 42}
+  };
+  map<string, string> string_map = {
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.topic_name)),
+      "foo"},
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.stream_name)), 
+      stream_name},
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.rekognition_data_stream)), 
+      "rekognition_data_stream"},
+    {TestParameterReader::DoFormatParameterPath(GetStreamParameterPath(stream_idx, kStreamParameters.rekognition_topic_name)),
+      "rekognition_topic_name"},
+  };
   
-//   TestParameterReader parameter_reader(int_map, bool_map_, string_map, map_map_);
-//   Aws::Vector<Model::Record> kinesis_records;
-//   StreamDefinitionProviderPartialMock stream_definition_provider;
-//   std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::make_unique<NiceMock<KinesisClientMock>>();
-//   NiceMock<KinesisClientMock> * kinesis_client_p = kinesis_client.get();
-//   KinesisStreamManagerT<KinesisVideoProducerMock, VideoStreamsImpl> stream_manager(&parameter_reader, & stream_definition_provider, 
-//     & subscription_installer_, std::move(kinesis_client));
+  TestParameterReader parameter_reader(int_map, bool_map_, string_map, map_map_);
+  Aws::Vector<Model::Record> kinesis_records;
+  StreamDefinitionProviderPartialMock stream_definition_provider;
+  std::unique_ptr<NiceMock<KinesisClientMock>> kinesis_client = std::make_unique<NiceMock<KinesisClientMock>>();
+  NiceMock<KinesisClientMock> * kinesis_client_p = kinesis_client.get();
+  KinesisStreamManager stream_manager(&parameter_reader, & stream_definition_provider, 
+    & subscription_installer_, std::move(kinesis_client));
+  auto video_producer = std::make_unique<KinesisVideoProducerMock>();
+  auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-//   stream_manager.InitializeVideoProducer(string("us-west-2"));
-//   EXPECT_CALL(stream_definition_provider, GetCodecPrivateData(_,_,_,_))
-//     .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
-//   auto kinesis_video_stream = std::make_shared<NiceMock<KinesisVideoStreamOpaqueMock>>(stream_name);              
-//   EXPECT_CALL(*stream_manager.get_video_producer(), createStreamSyncProxy(_))
-//     .WillOnce(Return(kinesis_video_stream));
-//   EXPECT_CALL(subscription_installer_, Install(_))
-//     .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
+  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+    .WillOnce(Return(video_stream_mock));
 
-//   auto fetch_status_not_configured = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+  stream_manager.InitializeVideoProducer(string("us-west-2"), ConstVideoProducerFactory(std::move(video_producer)));
+  EXPECT_CALL(stream_definition_provider, GetCodecPrivateData(_,_,_,_))
+    .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
+  EXPECT_CALL(subscription_installer_, Install(_))
+    .WillOnce(Return(KINESIS_MANAGER_STATUS_SUCCESS));
 
-//   EXPECT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status_not_configured));
+  auto fetch_status_not_configured = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+
+  EXPECT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status_not_configured));
  
-//   auto setup_status = stream_manager.KinesisVideoStreamerSetup();
+  auto setup_status = stream_manager.KinesisVideoStreamerSetup();
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(setup_status));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(setup_status));
   
-//   Model::ListShardsResult list_shards_result;
-//   Model::Shard shard1; 
-//   shard1.SetShardId("shard1Id");
-//   list_shards_result.SetShards({shard1});
-//   Model::ListShardsOutcome list_shards_outcome(list_shards_result);
+  Model::ListShardsResult list_shards_result;
+  Model::Shard shard1; 
+  shard1.SetShardId("shard1Id");
+  list_shards_result.SetShards({shard1});
+  Model::ListShardsOutcome list_shards_outcome(list_shards_result);
 
-//   EXPECT_CALL(*kinesis_client_p, ListShards(_))
-//     .WillRepeatedly(Return(list_shards_outcome));
-//   Model::GetShardIteratorResult get_shard_iterator_result;
-//   get_shard_iterator_result.SetShardIterator("shardIterator");
-//   Model::GetShardIteratorOutcome get_shard_iterator_outcome(get_shard_iterator_result);
-//   EXPECT_CALL(*kinesis_client_p, GetShardIterator(_))
-//     .WillRepeatedly(Return(get_shard_iterator_outcome));
+  EXPECT_CALL(*kinesis_client_p, ListShards(_))
+    .WillRepeatedly(Return(list_shards_outcome));
+  Model::GetShardIteratorResult get_shard_iterator_result;
+  get_shard_iterator_result.SetShardIterator("shardIterator");
+  Model::GetShardIteratorOutcome get_shard_iterator_outcome(get_shard_iterator_result);
+  EXPECT_CALL(*kinesis_client_p, GetShardIterator(_))
+    .WillRepeatedly(Return(get_shard_iterator_outcome));
 
-//   Model::Record record1;
-//   record1.SetSequenceNumber("seq_number1");
-//   Aws::Vector<Model::Record> expected_kinesis_records = {record1};
-//   Model::GetRecordsResult get_records_result;
-//   get_records_result.SetRecords(expected_kinesis_records);
-//   {
-//     InSequence get_records_seq; 
+  Model::Record record1;
+  record1.SetSequenceNumber("seq_number1");
+  Aws::Vector<Model::Record> expected_kinesis_records = {record1};
+  Model::GetRecordsResult get_records_result;
+  get_records_result.SetRecords(expected_kinesis_records);
+  {
+    InSequence get_records_seq; 
 
-//     Model::GetRecordsOutcome get_records_outcome_ok(get_records_result);
-//     EXPECT_CALL(*kinesis_client_p, GetRecords(_))
-//       .WillOnce(Return(get_records_outcome_ok));
+    Model::GetRecordsOutcome get_records_outcome_ok(get_records_result);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_ok));
 
-//     AWSError<KinesisErrors> get_records_error1(Aws::Kinesis::KinesisErrors::PROVISIONED_THROUGHPUT_EXCEEDED, true);
-//     Model::GetRecordsOutcome get_records_outcome_error1(get_records_error1);
-//     EXPECT_CALL(*kinesis_client_p, GetRecords(_))
-//       .WillOnce(Return(get_records_outcome_error1));
+    AWSError<KinesisErrors> get_records_error1(Aws::Kinesis::KinesisErrors::PROVISIONED_THROUGHPUT_EXCEEDED, true);
+    Model::GetRecordsOutcome get_records_outcome_error1(get_records_error1);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_error1));
 
-//     AWSError<KinesisErrors> get_records_error2(Aws::Kinesis::KinesisErrors::EXPIRED_ITERATOR, true);
-//     Model::GetRecordsOutcome get_records_outcome_error2(get_records_error2);
-//     EXPECT_CALL(*kinesis_client_p, GetRecords(_))
-//       .WillOnce(Return(get_records_outcome_error2));
+    AWSError<KinesisErrors> get_records_error2(Aws::Kinesis::KinesisErrors::EXPIRED_ITERATOR, true);
+    Model::GetRecordsOutcome get_records_outcome_error2(get_records_error2);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_error2));
 
-//     AWSError<KinesisErrors> get_records_error3(Aws::Kinesis::KinesisErrors::ACCESS_DENIED, true);
-//     Model::GetRecordsOutcome get_records_outcome_error3(get_records_error3);
-//     EXPECT_CALL(*kinesis_client_p, GetRecords(_))
-//       .WillOnce(Return(get_records_outcome_error3));
-//   }
+    AWSError<KinesisErrors> get_records_error3(Aws::Kinesis::KinesisErrors::ACCESS_DENIED, true);
+    Model::GetRecordsOutcome get_records_outcome_error3(get_records_error3);
+    EXPECT_CALL(*kinesis_client_p, GetRecords(_))
+      .WillOnce(Return(get_records_outcome_error3));
+  }
   
-//   auto fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+  auto fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status));
-//   ASSERT_EQ(expected_kinesis_records, kinesis_records);
-//   ASSERT_THAT(kinesis_records, ContainerEq(expected_kinesis_records));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_SUCCEEDED(fetch_status));
+  ASSERT_EQ(expected_kinesis_records, kinesis_records);
+  ASSERT_THAT(kinesis_records, ContainerEq(expected_kinesis_records));
 
-//   fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+  fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
 
-//   fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+  fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
 
-//   fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
+  fetch_status = stream_manager.FetchRekognitionResults(stream_name, &kinesis_records);
 
-//   ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
-// }
+  ASSERT_TRUE(KINESIS_MANAGER_STATUS_FAILED(fetch_status));
+}
 
 // TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestActualKinesisVideoProducer)
 // {
