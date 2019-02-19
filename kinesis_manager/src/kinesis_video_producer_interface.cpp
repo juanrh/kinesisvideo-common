@@ -18,14 +18,14 @@
 namespace Aws {
 namespace Kinesis {
 
-std::shared_ptr<KinesisVideoStreamInterface> KinesisVideoProducerImpl::createStreamSync(
+std::shared_ptr<KinesisVideoStreamInterface> KinesisVideoProducerImpl::CreateStreamSync(
     std::unique_ptr<com::amazonaws::kinesis::video::StreamDefinition> stream_definition)
 {
   auto video_stream = video_producer_->createStreamSync(std::move(stream_definition));
   return std::make_shared<KinesisVideoStreamImpl>(video_stream);
 }
 
-void KinesisVideoProducerImpl::freeStream(
+void KinesisVideoProducerImpl::FreeStream(
     std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream)
 {
   auto video_stream = kinesis_video_stream->GetKinesisVideoStream();

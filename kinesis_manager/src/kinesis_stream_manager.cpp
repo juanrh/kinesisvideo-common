@@ -249,7 +249,7 @@ KinesisManagerStatus KinesisStreamManager::InitializeVideoStream(
   StreamInfo stream_info = stream_definition->getStreamInfo();
   shared_ptr<KinesisVideoStreamInterface> stream;
   try {
-    stream = video_producer_->createStreamSync(std::move(stream_definition));
+    stream = video_producer_->CreateStreamSync(std::move(stream_definition));
   } catch (const std::runtime_error & e) {
     stream = nullptr;
   }
@@ -309,7 +309,7 @@ void KinesisStreamManager::FreeStream(std::string stream_name)
     if (video_streams_.at(stream_name)->IsReady()) {
       video_streams_.at(stream_name)->Stop();
     }
-    video_producer_->freeStream(video_streams_.at(stream_name));
+    video_producer_->FreeStream(video_streams_.at(stream_name));
     video_streams_.erase(stream_name);
   }
 }

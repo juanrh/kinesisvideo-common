@@ -31,7 +31,7 @@ public:
    *                          stream to be created.
    * @return An KinesisVideoStream instance which is ready to start streaming.
    */
-  virtual std::shared_ptr<KinesisVideoStreamInterface> createStreamSync(
+  virtual std::shared_ptr<KinesisVideoStreamInterface> CreateStreamSync(
     std::unique_ptr<com::amazonaws::kinesis::video::StreamDefinition> stream_definition) = 0;
 
   /**
@@ -42,7 +42,7 @@ public:
    *
    * @param KinesisVideo_stream A unique pointer to the KinesisVideoStream to free and remove.
    */
-  virtual void freeStream(
+  virtual void FreeStream(
     std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream) = 0;
 
   virtual ~KinesisVideoProducerInterface(){};
@@ -54,10 +54,10 @@ public:
   KinesisVideoProducerImpl(std::unique_ptr<com::amazonaws::kinesis::video::KinesisVideoProducer> video_producer)
   : video_producer_(std::move(video_producer)){};
 
-  virtual std::shared_ptr<KinesisVideoStreamInterface> createStreamSync(
+  virtual std::shared_ptr<KinesisVideoStreamInterface> CreateStreamSync(
     std::unique_ptr<com::amazonaws::kinesis::video::StreamDefinition> stream_definition) override;
 
-  virtual void freeStream(
+  virtual void FreeStream(
     std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream) override;
 
 private:

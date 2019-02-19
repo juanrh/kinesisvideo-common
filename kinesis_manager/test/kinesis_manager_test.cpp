@@ -296,12 +296,12 @@ public:
 class KinesisVideoProducerMock : public KinesisVideoProducerInterface
 {
 public:
-  std::shared_ptr<KinesisVideoStreamInterface> createStreamSync(std::unique_ptr<StreamDefinition> stream_definition) {
-    return createStreamSyncProxy(stream_definition.get());
+  std::shared_ptr<KinesisVideoStreamInterface> CreateStreamSync(std::unique_ptr<StreamDefinition> stream_definition) {
+    return CreateStreamSyncProxy(stream_definition.get());
   }
-  MOCK_METHOD1(createStreamSyncProxy, 
+  MOCK_METHOD1(CreateStreamSyncProxy, 
     std::shared_ptr<KinesisVideoStreamInterface>(StreamDefinition* stream_definition));
-  MOCK_METHOD1(freeStream, void(std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream));
+  MOCK_METHOD1(FreeStream, void(std::shared_ptr<KinesisVideoStreamInterface> kinesis_video_stream));
 };
 
 namespace Aws {
@@ -424,7 +424,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataStreamNotReady)
   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
   
-  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+  EXPECT_CALL(*video_producer.get(), CreateStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
   EXPECT_CALL(*video_stream_mock, IsReady())
     .WillOnce(Return(false));
@@ -451,7 +451,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testPutMetadataSuccess)
   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+  EXPECT_CALL(*video_producer.get(), CreateStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
 
   auto status = stream_manager.InitializeVideoProducer(string("us-west-2"), 
@@ -491,9 +491,9 @@ TEST_F(KinesisStreamManagerMockingFixture, testFreeStream)
   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+  EXPECT_CALL(*video_producer.get(), CreateStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
-  EXPECT_CALL(*video_producer.get(), freeStream(_)).Times(1);
+  EXPECT_CALL(*video_producer.get(), FreeStream(_)).Times(1);
 
   auto stream_definition = DefaultProducerSetup(stream_manager, std::string("us-west-2"), test_prefix, 
     ConstVideoProducerFactory(std::move(video_producer)));
@@ -609,7 +609,7 @@ TEST_F(KinesisStreamManagerMockingFixture, testKinesisVideoStreamSetupAndFetchRe
   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+  EXPECT_CALL(*video_producer.get(), CreateStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
 
   stream_manager.InitializeVideoProducer(string("us-west-2"), ConstVideoProducerFactory(std::move(video_producer)));
@@ -719,7 +719,7 @@ TEST_F(KinesisStreamManagerMockingFixture, mockStreamInitializationTestKinesisVi
   auto video_producer = std::make_unique<KinesisVideoProducerMock>();
   auto video_stream_mock = std::make_shared<KinesisVideoStreamMock>();
 
-  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+  EXPECT_CALL(*video_producer.get(), CreateStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
 
   auto stream_definition = 
@@ -745,7 +745,7 @@ TEST_F(KinesisStreamManagerMockingFixture, mockPutFrameTest)
   Frame frame;
   string stream_name("testStream");
 
-  EXPECT_CALL(*video_producer.get(), createStreamSyncProxy(_))
+  EXPECT_CALL(*video_producer.get(), CreateStreamSyncProxy(_))
     .WillOnce(Return(video_stream_mock));
 
   /* Before calling InitializeVideoProducer */
